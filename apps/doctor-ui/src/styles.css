@@ -20,6 +20,8 @@
   font-size: 15px;
   color: var(--ink);
   background: var(--bg);
+  accent-color: var(--accent);
+  line-height: 1.45;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -28,7 +30,7 @@ h3 { font-size: 0.95rem; margin: 16px 0 8px; }
 .muted { color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-.topbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.topbar { display: flex; align-items: center; gap: 8px; padding: 10px max(16px, calc((100% - 1256px) / 2)); background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .topbar .logo { color: var(--accent); }
 .topbar .brand { font-weight: 700; color: var(--accent); }
 .topbar .sub { font-size: 0.85rem; }
@@ -38,7 +40,7 @@ h3 { font-size: 0.95rem; margin: 16px 0 8px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); background: var(--card); padding: 0 12px; }
-.tabs button { border: 0; background: none; padding: 10px 12px; font: inherit; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; }
+.tabs button { border: 0; background: none; padding: 11px 12px; font: inherit; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; }
 .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 .tabs .count { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: var(--alert); color: #fff; font-size: 0.75rem; }
 
@@ -48,16 +50,20 @@ label { display: block; font-size: 0.85rem; margin: 8px 0 4px; }
 input[type="text"], input:not([type]), input[type="search"], input[type="email"], input[type="tel"], textarea, select {
   width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink);
 }
-input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.segmented label:focus-within { outline: 2px solid var(--accent); outline-offset: -3px; }
+.tabs button:focus-visible { outline-offset: -2px; }
 input.warn { border-color: var(--warn); background: var(--warn-soft); }
 textarea { resize: vertical; }
 .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 10px; }
-label.check { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+label.check { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin: 12px 0; }
+label.check input { width: 16px; height: 16px; margin: 0; align-self: center; }
 .hint { font-size: 0.8rem; color: var(--muted); margin: 6px 0 0; }
 .warn-text { color: var(--warn); }
 
 .segmented { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 6px 0; }
-.segmented label { flex: 1; margin: 0; text-align: center; padding: 8px 6px; cursor: pointer; font-size: 0.9rem; background: #fff; border-right: 1px solid var(--line); }
+.segmented label { flex: 1; min-width: 0; overflow-wrap: anywhere; margin: 0; text-align: center; padding: 8px 6px; cursor: pointer; font-size: 0.9rem; background: #fff; border-right: 1px solid var(--line); }
 .segmented label:last-child { border-right: 0; }
 .segmented label.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
@@ -101,7 +107,7 @@ button.link { border: 0; background: none; color: var(--accent); text-decoration
 .small { font-size: 0.82rem; }
 .req-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .req-list button { display: grid; gap: 4px; width: 100%; text-align: left; font: inherit; color: inherit; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; cursor: pointer; }
-.req-list button:hover { border-color: var(--accent); }
+.req-list button:hover { border-color: var(--accent); box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08); }
 .req-list li.problem button { border-left: 4px solid var(--alert); background: var(--alert-soft); }
 .req-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .req-head h2 { margin: 0; }
@@ -111,6 +117,7 @@ button.link { border: 0; background: none; color: var(--accent); text-decoration
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .banner .actions { margin-top: 8px; }
+.table-scroll { overflow-x: auto; }
 table.lab { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 table.lab th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); padding: 4px 6px; }
 table.lab td { padding: 5px 6px; border-bottom: 1px solid var(--line); }
