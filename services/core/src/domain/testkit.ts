@@ -70,6 +70,7 @@ export function testDeps(overrides: Partial<RequestServiceDeps> = {}) {
     repo: new SqliteRequestRepository({ dataDir: ":memory:" }),
     parser: createDocumentParser(),
     llm: noLlm,
+    log: () => {},
     ...overrides,
   };
   return { deps, service: createRequestService(deps) };

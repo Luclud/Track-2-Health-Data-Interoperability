@@ -6,13 +6,21 @@ import type { Patient } from "fhir/r4.js";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
-import type { AuthorizedRequestView, ChatNotifier, OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
+import type { AnswerInput, AnswerOutcome, AuthorizedRequestView, ChatNotifier, OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
+import { buildLabBundle } from "../fhir/build-lab.ts";
+import { buildRehabBundle } from "../fhir/build-rehab.ts";
+import { buildProblemTask } from "../fhir/build-task.ts";
+import { createdReferences } from "../fhir/store.ts";
+import type { FilingContext } from "../fhir/types.ts";
+import type { ParsedDocument } from "@brieftaube/shared";
+import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
+import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
 import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
-import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister } from "./identity.ts";
+import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
   const n = p.name?.find((x) => x.use === "official") ?? p.name?.[0];
@@ -176,6 +184,119 @@ export class CoreRequestService implements Partial<RequestService> {
       details: { policy: decision.policy, provider: identity.provider, register, ...metaDetails },
     });
     return { ok: true, identity, register, policy: decision.policy, view: toAuthorizedView(r) };
+  }
+
+  async submitAnswer(token: string, identity: VerifiedIdentity, answer: AnswerInput, meta: RequestMeta): Promise<AnswerOutcome> {
+    const found = await this.byToken(token);
+    if (!found) throw new DomainError("request-not-found", "Unknown or invalid link", 404);
+    const r = await this.expireIfDue(found);
+    if (r.status === "expired" || r.status === "cancelled") throw new DomainError("expired", "Die Anfrage ist abgelaufen.", 410);
+    if (r.status === "filed" || r.status === "held") throw new DomainError("already-answered", "Die Anfrage wurde bereits beantwortet.", 409);
+    if (!decideIdentity(r, identity).ok) throw new DomainError("identity-required", "Identität nicht bestätigt.", 403);
+
+    const at = this.now().toISOString();
+    const actor = { kind: "outside-person" as const, id: identity.subject, display: identityDisplay(identity) };
+    const content = answer.content ?? "";
+    const fileName = answer.fileName?.trim() || "antwort.md";
+    const hash = sha256(content);
+    const base = { requestId: r.id, requestReference: r.reference, at, actor };
+    await this.d.audit.record({
+      ...base,
+      step: "answer-sent",
+      what: `Answer received: ${fileName}, ${Buffer.byteLength(content, "utf8")} bytes, sha256 ${hash}`,
+      outcome: "success",
+      details: { fileName, size: Buffer.byteLength(content, "utf8"), sha256: hash, ...(meta.ipHash ? { ipHash: meta.ipHash } : {}) },
+    });
+
+    const parsed = this.d.parser.parse(content);
+    const doc = parsed.ok ? parsed.document : undefined;
+    if (!doc) return this.rejectAnswer(r, base, "unreadable", RESPONDER_MESSAGES.unreadable, chatUnreadable(r), `Document could not be read: ${parsed.problems.join("; ")}`, hash);
+    if (doc.kind !== r.documentType)
+      return this.rejectAnswer(r, base, "wrong-document-type", RESPONDER_MESSAGES["wrong-document-type"](r), chatWrongType(r, doc.kind), `Wrong document type: got ${doc.kind}, requested ${r.documentType}`, hash);
+    const pc = checkPatient(r, answer, doc);
+    if (!pc.ok) {
+      const other = `${[...pc.name.given, pc.name.family].join(" ")} (${pc.birthDate})`;
+      const req = `${[...r.patient.name.given, r.patient.name.family].join(" ")} (${r.patient.birthDate})`;
+      return this.rejectAnswer(r, base, "wrong-patient", RESPONDER_MESSAGES["wrong-patient"], chatWrongPatient(r, pc), `Wrong patient: ${pc.source} is about ${other}, request is about ${req}`, hash);
+    }
+
+    const register = await lookupRegister(r, identity, this.d.register);
+    const ctx: FilingContext = {
+      request: r,
+      identity,
+      register,
+      policy: policyFor(r),
+      answer: { fileName, content, sha256: hash },
+      identityCheckedAt: identity.authenticatedAt,
+      answerSentAt: at,
+      filedAt: at,
+    };
+    if (registerApplies(r) && !register.listed) {
+      r.status = "held";
+      r.heldReason = "not-in-register";
+      await this.d.repo.update(r);
+      await this.post({ roomId: r.roomId, body: chatHeld(r, HELD_REASON_DE["not-in-register"]), severity: "warning" });
+      return { result: "held", reason: "not-in-register" };
+    }
+    const filedResources = await this.file(r, doc, ctx);
+    return { result: "filed", filedResources };
+  }
+
+  /** Build the transaction, send it, mark the request filed, audit + Matrix ✅. */
+  protected async file(r: DocumentRequest, doc: ParsedDocument, ctx: FilingContext): Promise<string[]> {
+    const bundle = doc.kind === "lab-result" ? buildLabBundle(doc, ctx) : buildRehabBundle(doc, ctx);
+    let response;
+    try {
+      response = await this.d.fhir.transaction(bundle);
+    } catch (err) {
+      throw new DomainError("fhir-unavailable", `Filing failed: ${(err as Error).message}`, 502);
+    }
+    const refs = createdReferences(bundle, response);
+    const filed = Object.values(refs).filter((x) => !/^(Practitioner|Organization|Task)\//.test(x));
+    r.status = "filed";
+    r.filedResources = filed;
+    delete r.heldReason;
+    delete r.lastProblem;
+    await this.d.repo.update(r);
+    const count = (t: string) => filed.filter((x) => x.startsWith(`${t}/`));
+    const main = count(doc.kind === "lab-result" ? "DiagnosticReport" : "DocumentReference")[0];
+    const obs = count("Observation").length;
+    await this.d.audit.record({
+      requestId: r.id,
+      requestReference: r.reference,
+      at: ctx.filedAt,
+      step: "answer-filed",
+      actor: { kind: "system", id: "brieftaube", display: "Brieftaube" },
+      what: `Filed ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
+      outcome: "success",
+      details: { filedResources: filed, policy: ctx.policy },
+    });
+    await this.post({ roomId: r.roomId, body: chatFiled(r, doc, ctx.register), severity: "success" });
+    return filed;
+  }
+
+  protected async rejectAnswer(
+    r: DocumentRequest,
+    base: { requestId: string; requestReference: string; at: string; actor: { kind: "outside-person"; id: string; display: string } },
+    reason: "wrong-patient" | "wrong-document-type" | "unreadable",
+    messageForResponder: string,
+    chat: string,
+    what: string,
+    hash: string,
+  ): Promise<AnswerOutcome> {
+    r.status = "rejected";
+    if (reason !== "unreadable") r.lastProblem = reason;
+    await this.d.repo.update(r);
+    await this.d.audit.record({ ...base, step: "misdelivery-caught", what, outcome: "failure", details: { misdelivery: reason, sha256: hash } });
+    if (reason !== "unreadable") {
+      try {
+        await this.d.fhir.upsert(buildProblemTask(r, reason, base.at));
+      } catch {
+        // best effort: the audit entry above is the record
+      }
+    }
+    await this.post({ roomId: r.roomId, body: chat, severity: "alert" });
+    return { result: "rejected", reason, messageForResponder };
   }
 
   protected async byToken(token: string): Promise<DocumentRequest | undefined> {
