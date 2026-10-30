@@ -91,11 +91,19 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     const { view } = opened;
     if (view.status !== "open") return sendHtml(reply, V.closedPage(view), 410);
     if (currentSession(req, token)) return reply.redirect(`${cookiePath(token)}/answer`, 303);
+    // Pre-create the login state so /login does not call openLink (and audit "link-opened") a second time.
+    const state = logins.put({ token, view, expiresAt: now() + STATE_TTL_MS });
+    reply.setCookie(STATE_COOKIE, state, cookieOpts(token, STATE_TTL_MS));
     return sendHtml(reply, V.landingPage(view, `${cookiePath(token)}/login`));
   });
 
   app.get<{ Params: { token: string } }>("/r/:token/login", async (req, reply) => {
     const { token } = req.params;
+    const existingState = readSigned(req, STATE_COOKIE);
+    const existing = logins.get(existingState);
+    if (existingState && existing && existing.token === token) {
+      return reply.redirect(deps.eid.authorizationUrl({ state: existingState, redirectUri: callbackUrl(token), loginHint: existing.view.recipientDisplayName }), 303);
+    }
     const opened = await deps.requests.openLink(token, requestMeta(req));
     if (!opened) return sendHtml(reply, V.unknownLinkPage(), 404);
     if (opened.view.status !== "open") return sendHtml(reply, V.closedPage(opened.view), 410);

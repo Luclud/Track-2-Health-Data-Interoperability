@@ -122,6 +122,16 @@ describe("portal landing", () => {
 });
 
 describe("identity check", () => {
+  it("landing then login audits link-opened only once", async () => {
+    const jar = new Jar();
+    const landing = await app.inject({ url: "/r/tok-eva" });
+    jar.take(landing);
+    const login = await app.inject({ url: "/r/tok-eva/login", headers: { cookie: jar.header() } });
+    expect(login.statusCode).toBe(303);
+    expect(new URL(login.headers.location as string).pathname).toBe("/mock-eid/authorize");
+    expect(svc.calls.filter((c) => c.method === "openLink")).toHaveLength(1);
+  });
+
   it("redirects to the mock eID with state and callback", async () => {
     const res = await app.inject({ url: "/r/tok-eva/login" });
     const u = new URL(res.headers.location as string);
