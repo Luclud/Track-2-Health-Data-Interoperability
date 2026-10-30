@@ -37,7 +37,7 @@ Owns: `services/core/src/{domain,parser,fhir,llm,audit,api,db}/**`
 - [x] **CORE-7 (P0) Audit log.** `audit/`: SQLite table + append `DATA_DIR/audit.jsonl` + FHIR AuditEvent via builder (best effort, errors logged not thrown).
 - [x] **CORE-8 (P0) REST API.** `api/routes.ts` exactly per `packages/shared/src/api.ts`; auth middleware for `AUTH_MODE=dev|matrix` (OpenID userinfo at Synapse; allowed users = `*:klinikum.example`; requester profile from Matrix display name + Practitioner lookup by identifier, fallback to seed values).
   - Tests: Fastify `inject` tests for every endpoint with fakes.
-- [ ] **CORE-9 (P1) LLM fallback.** `llm/`: providers `anthropic` (Messages API), `perplexity` and `openai-compatible` (chat completions with `response_format: json_schema`), `mock` (returns fixture JSON), `none`. JSON schema in `llm/schema.ts`. Verification per DESIGN.md §3; verified results → `held` (`ai-extracted`).
+- [x] **CORE-9 (P1) LLM fallback.** `llm/`: providers `anthropic` (Messages API), `perplexity` and `openai-compatible` (chat completions with `response_format: json_schema`), `mock` (returns fixture JSON), `none`. JSON schema in `llm/schema.ts`. Verification per DESIGN.md §3; verified results → `held` (`ai-extracted`).
   - Tests with `mock`: hallucinated value is rejected; correct extraction becomes `held`.
 - [x] **CORE-10 (P1) Recipient check.** `checkRecipient`: uppercase, confusables, mixed scripts, unknown contact, name-not-in-address. `labor-kanaI.example` must warn.
 - [ ] **CORE-11 (P2) Held answers.** release/reject endpoints + service; release files exactly what was held (keep the parsed doc in the DB until decided).
