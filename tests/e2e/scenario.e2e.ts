@@ -134,7 +134,9 @@ describe.skipIf(!up)("scenario request 1 (email) with M2 and M3 on the same requ
     await chatMessageMatching(`🛑 for ${reference} naming Max Beispiel`, (b) => b.includes(reference) && b.includes("Max Beispiel"));
     const inr = await fhirSearch<{ valueQuantity?: { value?: number } }>("Observation", { subject: `Patient/${PATIENT_ID}`, code: "http://loinc.org|6301-6" });
     expect(inr.some((o) => o.valueQuantity?.value === 2.6), "Max's INR 2.6 must not be in Maria's record").toBe(false);
-    expect(await fhirSearch("Patient", { given: "Max", family: "Beispiel" })).toEqual([]);
+    // Max Beispiel is a real (seeded) patient of the hospital; nothing from this request may land in his record either.
+    const maxObs = await fhirSearch<{ valueQuantity?: { value?: number } }>("Observation", { subject: "Patient/max-beispiel", code: "http://loinc.org|6301-6" });
+    expect(maxObs.some((o) => o.valueQuantity?.value === 2.6), "nothing is filed for Max").toBe(false);
     results.M3 = { caught: true, reference };
   });
 
