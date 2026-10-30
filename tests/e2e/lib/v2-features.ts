@@ -5,7 +5,7 @@ export const MERGED = {
   "V2-CRIT-1": false, // TODO V2-CRIT-1: 🚨 alert + critical flag in summary
   "V2-CRIT-2": false, // TODO V2-CRIT-2: ✅ message html table, loinc in summary
   "V2-AI-1": false, // TODO V2-AI-1: evidence for held answers
-  "V2-JURY-1": false, // TODO V2-JURY-1: QR modal in the doctor UI
+  "V2-JURY-1": true,
   "V2-JURY-2": false, // TODO V2-JURY-2: demo buttons on the answer page (jury mode only)
   "V2-RCPT-1": false, // TODO V2-RCPT-1: Eingangsbestätigung with SHA-256
   "V2-REM-1": false, // TODO V2-REM-1: reminders, link rotation, active expiry
