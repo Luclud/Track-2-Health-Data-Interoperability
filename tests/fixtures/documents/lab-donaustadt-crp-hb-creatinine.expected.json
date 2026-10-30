@@ -1,0 +1,82 @@
+{
+  "$note": "Other lab and physician, other LOINC codes, H and L values, range forms '<B', 'A - B', 'A–B' (en dash), 10^12/L. 27 October 2026 is after the DST change (25 Oct), so +01:00.",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor Donaustadt: lab report",
+    "organization": "Labor Donaustadt",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-10-27T07:30:00+01:00",
+    "reported": "2026-10-27T10:05:00+01:00",
+    "values": [
+      {
+        "testName": "C-reactive protein",
+        "value": 38.5,
+        "unitText": "mg/L",
+        "referenceHigh": 5,
+        "loinc": "1988-5"
+      },
+      {
+        "testName": "Haemoglobin",
+        "value": 10.9,
+        "unitText": "g/dL",
+        "referenceLow": 12.0,
+        "referenceHigh": 15.5,
+        "loinc": "718-7"
+      },
+      {
+        "testName": "Creatinine",
+        "value": 1.42,
+        "unitText": "mg/dL",
+        "referenceLow": 0.5,
+        "referenceHigh": 0.9,
+        "loinc": "2160-0"
+      },
+      {
+        "testName": "Leukocytes",
+        "value": 11.8,
+        "unitText": "10^9/L",
+        "referenceLow": 4.0,
+        "referenceHigh": 10.0,
+        "loinc": "6690-2"
+      },
+      {
+        "testName": "Erythrocytes",
+        "value": 3.9,
+        "unitText": "10^12/L",
+        "referenceLow": 4.1,
+        "referenceHigh": 5.1,
+        "loinc": "789-8"
+      }
+    ],
+    "conclusion": "CRP and leukocytes are raised, haemoglobin and erythrocytes are low, creatinine is raised.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Martin"
+        ],
+        "family": "Huber",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "specialist in laboratory medicine"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "L",
+    "H",
+    "H",
+    "L"
+  ]
+}

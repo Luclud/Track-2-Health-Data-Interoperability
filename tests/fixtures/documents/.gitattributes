@@ -1,0 +1,2 @@
+# Keep the CRLF fixture byte-exact (it tests \r\n handling).
+*crlf*.md -text
