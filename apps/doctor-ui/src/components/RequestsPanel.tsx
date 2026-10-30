@@ -1,10 +1,12 @@
 import { useState } from "react";
-import type { AuditEntry, DocumentRequestView, FiledSummary, RequestDetailResponse } from "@brieftaube/shared";
+import { formatValueDe, labNameDe, unitDisplay, type AuditEntry, type DocumentRequestView, type FiledSummary, type RequestDetailResponse } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
 import { CHANNEL_DE, DOC_TYPE_DE, HELD_DE, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
 import { formatDate, formatDateTime, formatTime } from "../format.ts";
 import { usePolling } from "./usePolling.ts";
 import { expiryText, groupRequests } from "./board.ts";
+import { HeldReviewPanel } from "./HeldReview.tsx";
+import { formatRange } from "./values.ts";
 
 interface Props {
   api: Api;
@@ -159,6 +161,8 @@ function DetailBody({ d, busy, onDecide }: { d: RequestDetailResponse; busy: boo
         </div>
       )}
 
+      {r.status === "held" && d.review && <HeldReviewPanel review={d.review} />}
+
       {d.summary && <Summary s={d.summary} />}
 
       <h3>Verlauf</h3>
@@ -183,13 +187,21 @@ function Summary({ s }: { s: FiledSummary }) {
             </thead>
             <tbody>
               {s.values.map((v) => (
-                <tr key={v.testName} className={v.interpretation !== "N" ? "flag" : ""}>
-                  <td>{v.testName}</td>
+                <tr key={v.testName} className={v.critical ? "critical" : v.interpretation !== "N" ? "flag" : ""} title={v.critical ? `Kritischer Wert (Grenze ${v.critical.rule})` : undefined}>
+                  <td>
+                    {v.critical && (
+                      <span className="crit-icon" aria-label="Kritischer Wert">
+                        🚨{" "}
+                      </span>
+                    )}
+                    {labNameDe(v.loinc, v.testName)}
+                    {v.critical && <div className="crit-rule">Kritisch: {v.critical.rule}</div>}
+                  </td>
                   <td className="num">
-                    <b>{v.value.toLocaleString("de-AT")}</b> {v.unit}
+                    <b>{formatValueDe(v.value, v.low, v.high)}</b> {unitDisplay(v.unit)}
                     {v.interpretation !== "N" && <span className={`flag-badge ${v.interpretation}`}>{v.interpretation === "H" ? "↑ H" : "↓ L"}</span>}
                   </td>
-                  <td className="num muted">{range(v.low, v.high)}</td>
+                  <td className="num muted">{formatRange(v.low, v.high, v.value)}</td>
                 </tr>
               ))}
             </tbody>
@@ -210,14 +222,6 @@ function Summary({ s }: { s: FiledSummary }) {
       <blockquote className="excerpt">{s.excerpt}</blockquote>
     </>
   );
-}
-
-function range(low?: number, high?: number): string {
-  const f = (n: number) => n.toLocaleString("de-AT");
-  if (low !== undefined && high !== undefined) return `${f(low)}–${f(high)}`;
-  if (high !== undefined) return `< ${f(high)}`;
-  if (low !== undefined) return `> ${f(low)}`;
-  return "";
 }
 
 function Timeline({ audit }: { audit: AuditEntry[] }) {
