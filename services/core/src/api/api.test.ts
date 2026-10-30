@@ -101,4 +101,25 @@ describe("REST API", () => {
     const rel = await app.inject({ method: "POST", url: `/api/requests/${request.id}/release`, headers: LENA, payload: {} });
     expect([200, 409, 501]).toContain(rel.statusCode);
   });
+  it("GET /api/ui-config needs no auth and reports the switches", async () => {
+    const off = await setup({ juryMode: false, llmProvider: "none" });
+    expect((await off.app.inject({ url: "/api/ui-config" })).json()).toEqual({ juryMode: false, llmEnabled: false });
+    const on = await setup({ juryMode: true, llmProvider: "mock" });
+    expect((await on.app.inject({ url: "/api/ui-config" })).json()).toEqual({ juryMode: true, llmEnabled: true });
+  });
+
+  it("returns juryLink only in JURY_MODE", async () => {
+    const off = await setup({ juryMode: false });
+    const a = await off.app.inject({ method: "POST", url: "/api/requests", headers: LENA, payload: { ...labBody, acknowledgeWarnings: true } });
+    expect(a.statusCode).toBe(201);
+    expect(a.json()).not.toHaveProperty("juryLink");
+
+    const on = await setup({ juryMode: true });
+    const b = await on.app.inject({ method: "POST", url: "/api/requests", headers: LENA, payload: { ...labBody, acknowledgeWarnings: true } });
+    expect(b.statusCode).toBe(201);
+    const link: string = b.json().juryLink;
+    expect(link).toMatch(/^http:\/\/localhost:3000\/r\//);
+    const [mail] = await (on.t.deps.email as MemorySender).inbox();
+    expect(mail!.body).toContain(link);
+  });
 });

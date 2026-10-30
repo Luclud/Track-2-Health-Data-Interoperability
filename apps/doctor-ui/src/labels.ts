@@ -28,6 +28,7 @@ export const STEP_DE: Record<AuditStep, { label: string; icon: string }> = {
   "answer-sent": { label: "Antwort eingegangen", icon: "📄" },
   "answer-filed": { label: "Im Patientenakt abgelegt", icon: "✅" },
   "misdelivery-caught": { label: "Fehlzustellung erkannt", icon: "🛑" },
+  "reminder-sent": { label: "Erinnerung gesendet", icon: "🔔" },
 };
 
 export const PROBLEM_DE: Record<MisdeliveryKind, string> = {

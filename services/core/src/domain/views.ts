@@ -14,6 +14,7 @@ export function toView(r: DocumentRequest): DocumentRequestView {
   };
   if (r.heldReason) v.heldReason = r.heldReason;
   if (r.lastProblem) v.lastProblem = r.lastProblem;
+  if (r.reminderSentAt) v.reminderSentAt = r.reminderSentAt;
   return v;
 }
 

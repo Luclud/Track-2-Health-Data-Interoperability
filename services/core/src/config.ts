@@ -38,6 +38,13 @@ export const config = {
   llmBaseUrl: env("LLM_BASE_URL", ""),
 
   requestTtlHours: Number(env("REQUEST_TTL_HOURS", "72")),
+
+  /** Live demo only: the recipient link is also returned to the doctor UI (QR code). Never in real use. */
+  juryMode: env("JURY_MODE", "false") === "true",
+  reminderBeforeExpiryMinutes: Number(env("REMINDER_BEFORE_EXPIRY_MINUTES", "1440")),
+  /** 0 = scheduler off */
+  schedulerIntervalSeconds: Number(env("SCHEDULER_INTERVAL_SECONDS", "60")),
+  criticalValuesFile: env("CRITICAL_VALUES_FILE", "infra/critical-values.json"),
 } as const;
 
 export type Config = typeof config;

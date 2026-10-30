@@ -10,7 +10,13 @@ export const AUDIT_STEPS = [
   "misdelivery-caught",
 ] as const;
 
-export type AuditStep = (typeof AUDIT_STEPS)[number];
+/** The six steps the challenge asks for. Metrics count exactly these. */
+export type ChallengeAuditStep = (typeof AUDIT_STEPS)[number];
+
+/** Extra steps (v2) that are logged but are not one of the six challenge steps. */
+export const EXTRA_AUDIT_STEPS = ["reminder-sent"] as const;
+
+export type AuditStep = ChallengeAuditStep | (typeof EXTRA_AUDIT_STEPS)[number];
 
 export type ActorKind = "internal-practitioner" | "outside-person" | "unverified-visitor" | "system";
 
