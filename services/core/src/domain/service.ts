@@ -2,7 +2,8 @@
 // and held decisions (CORE-11) are added in their own modules.
 import { randomUUID } from "node:crypto";
 import type { CreateRequestBody, DocumentRequest, IdentityCheckOutcome, PatientSnapshot, RecipientWarning, Requester, RequestDetailResponse, VerifiedIdentity } from "@brieftaube/shared";
-import type { Patient } from "fhir/r4.js";
+import type { Organization, Patient, Practitioner, PractitionerRole } from "fhir/r4.js";
+import { checkRecipientAddress } from "./recipient.ts";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
@@ -38,8 +39,23 @@ export class CoreRequestService implements Partial<RequestService> {
     return this.d.now?.() ?? new Date();
   }
 
-  async checkRecipient(_requester: Requester, _body: { channel: "email" | "sms"; address: string; displayName: string }): Promise<RecipientWarning[]> {
-    return [];
+  async checkRecipient(requester: Requester, body: { channel: "email" | "sms"; address: string; displayName: string }): Promise<RecipientWarning[]> {
+    const known = [...(await this.d.repo.knownAddresses(requester.matrixUserId)), ...(await this.directoryAddresses())];
+    return checkRecipientAddress(body, known);
+  }
+
+  /** telecom values of Practitioners/Organizations/PractitionerRoles on the FHIR server (best effort). */
+  protected async directoryAddresses(): Promise<string[]> {
+    const out: string[] = [];
+    for (const type of ["Practitioner", "PractitionerRole", "Organization"] as const) {
+      try {
+        const list = await this.d.fhir.search<Practitioner | PractitionerRole | Organization>(type, { _count: "200" });
+        for (const r of list) for (const t of r.telecom ?? []) if (t.value) out.push(t.value);
+      } catch {
+        // directory unavailable: only previously used addresses count as known
+      }
+    }
+    return out;
   }
 
   async createRequest(requester: Requester, body: CreateRequestBody) {
