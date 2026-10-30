@@ -35,3 +35,8 @@ input[aria-invalid=true],textarea[aria-invalid=true]{border-color:#b42318}
 .steps li[aria-current=step]{background:#0b4f6c;color:#fff;font-weight:700}
 footer{font-size:.85rem;color:#5a6577;margin-top:2rem}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+input[type=file]::file-selector-button{font:inherit;font-weight:600;padding:.7rem 1rem;margin-right:.8rem;border:2px solid #0b4f6c;border-radius:.5rem;background:#fff;color:#0b4f6c;cursor:pointer;min-height:3rem}
+.notice ul{margin:.4rem 0 0;padding-left:1.2rem}
+.notice a{color:inherit;font-weight:600}
+label .hint{display:inline;margin-left:.3rem}
+@media (prefers-reduced-motion:no-preference){.btn{transition:background .15s}}

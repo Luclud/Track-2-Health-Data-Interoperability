@@ -134,7 +134,7 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     const outcome = await deps.requests.completeIdentityCheck(token, identity, requestMeta(req));
     if (!outcome.ok || !outcome.view) {
       const reason = outcome.ok ? "name-mismatch" : outcome.reason;
-      return sendHtml(reply, V.identityFailedPage(pending.view, reason), 403);
+      return sendHtml(reply, V.identityFailedPage(pending.view, reason, reason === "name-mismatch" ? `${cookiePath(token)}/login` : undefined), 403);
     }
     const sid = sessions.put({ token, identity: outcome.identity, view: outcome.view, expiresAt: now() + SESSION_TTL_MS });
     reply.setCookie(SESSION_COOKIE, sid, cookieOpts(token, SESSION_TTL_MS));

@@ -88,7 +88,7 @@ export function loginRetryPage(loginHref: string): string {
   );
 }
 
-export function identityFailedPage(v: PublicRequestView, reason: FailReason): string {
+export function identityFailedPage(v: PublicRequestView, reason: FailReason, retryHref?: string): string {
   const body =
     reason === "expired"
       ? html`<h1>Diese Anfrage ist abgelaufen</h1><p class="notice warn">Bitte wenden Sie sich an ${v.requesterDisplayName}.</p>`
@@ -97,8 +97,16 @@ export function identityFailedPage(v: PublicRequestView, reason: FailReason): st
         : reason === "loa-too-low"
           ? html`<h1>Diese Anmeldung reicht nicht aus</h1><p class="notice err">Für diese Anfrage ist eine e-ID mit hohem Vertrauensniveau nötig. Die Anfrage wurde nicht angezeigt.</p>`
           : html`<h1>Identität nicht bestätigt</h1><p class="notice err" role="alert">Wir konnten nicht bestätigen, dass Sie ${v.recipientDisplayName} sind. Die Anfrage wurde nicht angezeigt. ${v.requesterDisplayName} wurde informiert.</p>
-<p>Wenn Sie diese Nachricht irrtümlich bekommen haben, müssen Sie nichts weiter tun. Bitte leiten Sie den Link nicht weiter.</p>`;
+<p>Wenn Sie diese Nachricht irrtümlich bekommen haben, müssen Sie nichts weiter tun. Bitte leiten Sie den Link nicht weiter.</p>
+${retryHref ? html`<a class="btn secondary" href="${retryHref}">Ich bin ${v.recipientDisplayName} – erneut anmelden</a>` : ""}`;
   return layout("Identität nicht bestätigt", body, { view: v, step: 1 });
+}
+
+const FIELD_TARGET: Record<keyof AnswerErrors, string> = { patientGiven: "patientGiven", patientFamily: "patientFamily", patientBirthDate: "patientBirthDate", document: "file", form: "file" };
+
+function errorSummary(errors: AnswerErrors) {
+  const entries = Object.entries(errors) as [keyof AnswerErrors, string][];
+  return html`<div class="notice err" role="alert" id="fehler"><b>Bitte korrigieren Sie:</b><ul>${entries.map(([k, msg]) => html`<li><a href="#${FIELD_TARGET[k]}">${msg}</a></li>`)}</ul></div>`;
 }
 
 function fieldError(id: keyof AnswerErrors, errors: AnswerErrors) {
@@ -117,7 +125,7 @@ export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity,
     `${label} senden`,
     html`<p class="notice ok">Identität bestätigt: ${who}</p>
 ${rejected ? html`<div class="notice err" role="alert"><b>Das Dokument wurde nicht übernommen.</b><br>${rejected.messageForResponder}<br>Bitte prüfen Sie das Dokument und senden Sie es erneut.</div>` : ""}
-${hasErrors ? html`<div class="notice err" role="alert">Bitte korrigieren Sie die markierten Angaben.${errors.form ? html`<br>${errors.form}` : ""}</div>` : ""}
+${hasErrors ? errorSummary(errors) : ""}
 <h1>${v.requesterDisplayName} bittet um: ${label}</h1>
 <div class="card"><dl>
 <dt>Patientin / Patient</dt><dd>${[...p.name.given, p.name.family].join(" ")}, geb. ${formatDate(p.birthDate)}</dd>
@@ -127,24 +135,25 @@ ${v.note ? html`<dt>Nachricht von ${v.requesterDisplayName}</dt><dd>${v.note}</d
 </dl></div>
 <form method="post" enctype="multipart/form-data" novalidate>
 <h2>Zu welcher Person gehört das Dokument?</h2>
-<p class="hint">Bitte so eintragen, wie es im Dokument steht.</p>
+<p class="hint">Bitte so eintragen, wie es im Dokument steht. Alle Felder sind Pflichtangaben.</p>
 <label for="patientGiven">Vorname(n)</label>
 <input id="patientGiven" name="patientGiven" type="text" autocomplete="off" required value="${values.patientGiven ?? ""}"${invalid("patientGiven", errors)}>
 ${fieldError("patientGiven", errors)}
 <label for="patientFamily">Nachname</label>
 <input id="patientFamily" name="patientFamily" type="text" autocomplete="off" required value="${values.patientFamily ?? ""}"${invalid("patientFamily", errors)}>
 ${fieldError("patientFamily", errors)}
-<label for="patientBirthDate">Geburtsdatum</label>
+<label for="patientBirthDate">Geburtsdatum <span class="hint">z. B. 12.03.1961</span></label>
 <input id="patientBirthDate" name="patientBirthDate" type="date" required value="${values.patientBirthDate ?? ""}"${invalid("patientBirthDate", errors)}>
 ${fieldError("patientBirthDate", errors)}
 <h2>Dokument</h2>
 <label for="file">Datei hochladen <span class="hint">.md oder .txt, höchstens 1 MB</span></label>
 <input id="file" name="file" type="file" accept=".md,.txt,.markdown,text/markdown,text/plain"${invalid("document", errors)}>
 <p class="or">– oder –</p>
-<label for="content">Text einfügen</label>
+<label for="content">Text einfügen <span class="hint">den ganzen Inhalt des Dokuments, unverändert</span></label>
 <textarea id="content" name="content" rows="8"${invalid("document", errors)}>${values.content ?? ""}</textarea>
 ${fieldError("document", errors)}
 <button class="btn" type="submit">Sicher senden</button>
+<p class="hint">Mit „Sicher senden“ geht das Dokument direkt an ${v.requesterDisplayName} (${v.requesterOrganization}).</p>
 </form>`,
     { view: v, step: 2 },
   );
