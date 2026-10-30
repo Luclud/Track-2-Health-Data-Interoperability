@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { MemorySender } from "../notify/index.ts";
-import { criticalFor, loadCriticalLimits } from "./critical.ts";
+import { quantity } from "../fhir/util.ts";
+import { criticalFor, criticalForParsed, loadCriticalLimits } from "./critical.ts";
 import { identity, labBody, lena, testDeps } from "./testkit.ts";
 
 const scenario = readFileSync("scenario/documents/lab-result-maria-beispiel.md", "utf8");
@@ -37,6 +38,14 @@ describe("critical values (V2-CRIT-1)", () => {
     expect(loadCriticalLimits("does/not/exist.json", () => {})).toEqual({});
   });
 
+  it("G/l (Giga per litre) is 10⁹/L, not grams: platelets 38 G/l is critical", () => {
+    expect(quantity(38, "G/l", "777-3").code).toBe("10*9/L");
+    expect(quantity(4.8, "T/l", "789-8").code).toBe("10*12/L");
+    expect(quantity(13.1, "g/l", "718-7").code).toBe("g/L");
+    const limits = loadCriticalLimits("infra/critical-values.json");
+    expect(criticalForParsed(limits, { testName: "Thrombozyten", value: 38, unitText: "G/l", loinc: "777-3" })).toEqual({ rule: "< 50" });
+  });
+
   it("platelets 38: 🚨 alert before ✅, flag in summary, values in the audit", async () => {
     const doc = scenario.replace("| Platelets | 245 |", "| Platelets | 38 |").replace("All values are within the reference range.", "Platelets low.");
     const { out, chat, request, service, deps } = await fileLab(doc);
@@ -66,7 +75,7 @@ describe("critical values (V2-CRIT-1)", () => {
   });
 
   it("unit mismatch: no alert, no crash", async () => {
-    const doc = scenario.replace("| Platelets | 245 | 10^9/L |", "| Platelets | 38 | G/l |");
+    const doc = scenario.replace("| Platelets | 245 | 10^9/L |", "| Platelets | 38 | mmol/L |");
     const { out, chat } = await fileLab(doc);
     expect(out.result).toBe("filed");
     expect(chat.some((m) => m.body.includes("Kritischer Wert"))).toBe(false);
