@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brieftaube Network · Vision prototype</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --accent:#0b6e79; --accent-2:#0e8a97; --accent-soft:#e6f3f4; --accent-softer:#f3f9fa;
+  --ink:#1d2730; --ink-2:#34434f; --muted:#5d6b78; --faint:#94a1ac;
+  --line:#e2e7eb; --line-2:#eef2f5; --bg:#f3f5f7; --card:#fff;
+  --ok:#1e7b45; --ok-soft:#e7f5ec; --warn:#b07400; --warn-ink:#8a5a00; --warn-soft:#fff4dc;
+  --alert:#b3261e; --alert-soft:#fbefee; --info:#22577a; --info-soft:#e8f1f8;
+  --r:14px; --r-sm:10px;
+  --sh:0 1px 2px rgba(16,24,40,.04),0 8px 28px rgba(16,24,40,.07);
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+*{box-sizing:border-box}
+html{font-size:clamp(14px,min(.885vw,1.574vh),17px)}
+body{margin:0;height:100vh;overflow:hidden;background:var(--bg);color:var(--ink);line-height:1.45;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+p{margin:0}
+.i{width:1.2em;height:1.2em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.muted{color:var(--muted)}
+
+/* ---------- top bar ---------- */
+.top{height:4rem;display:flex;align-items:center;gap:1.4rem;padding:0 1.6rem;background:#fff;border-bottom:1px solid var(--line);position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:.7rem;flex:none}
+.mark{width:2.3rem;height:2.3rem;border-radius:.72rem;background:linear-gradient(140deg,#11929f,#0b6e79);display:grid;place-items:center;box-shadow:0 2px 8px rgba(11,110,121,.3);flex:none}
+.mark svg{width:72%;height:72%}
+.mark.sm{width:1.9em;height:1.9em;border-radius:.55em;box-shadow:none}
+.brand b{font-size:1.12rem;letter-spacing:-.01em;display:block;line-height:1.2}
+.brand small{display:block;color:var(--muted);font-size:.76rem;font-weight:500}
+.steps{flex:1;display:flex;justify-content:center;align-items:center;gap:.3rem;min-width:0}
+.st{flex:none;display:flex;align-items:center;gap:.45rem;border:0;background:none;padding:.32rem .65rem .32rem .35rem;border-radius:999px;cursor:pointer;color:var(--faint);font-size:.82rem;font-weight:600;white-space:nowrap;transition:background .3s,color .3s}
+.st .n{width:1.55rem;height:1.55rem;border-radius:50%;display:grid;place-items:center;border:1.5px solid currentColor;font-size:.74rem;transition:background .3s,border-color .3s,color .3s}
+.st.done{color:var(--accent)}
+.st.done .n{background:var(--accent-soft);border-color:transparent}
+.st.cur{color:var(--accent);background:var(--accent-soft)}
+.st.cur .n{background:var(--accent);border-color:var(--accent);color:#fff}
+.sep{width:1rem;height:2px;border-radius:2px;background:var(--line);flex:none;transition:background .3s}
+.sep.done{background:#9fcfd4}
+.badge{flex:none;display:flex;align-items:center;gap:.5rem;padding:.38rem .8rem;border-radius:999px;background:var(--warn-soft);color:var(--warn-ink);font-size:.76rem;font-weight:600;border:1px solid #f0dfb5}
+.badge i{width:.48rem;height:.48rem;border-radius:50%;background:#d6a02a;display:block}
+.st:not(.cur) .stl{display:none}.st:not(.cur){padding:.32rem}
+
+/* ---------- layout ---------- */
+main{height:calc(100vh - 4rem);display:grid;grid-template-columns:minmax(0,65fr) minmax(0,35fr)}
+.doctor{padding:1.25rem 1.1rem 1.25rem 1.5rem;min-width:0;min-height:0;transition:opacity .45s ease,filter .45s ease}
+body[data-focus=phone] .doctor{opacity:.42;filter:saturate(.55)}
+.ws{height:100%;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:1.1rem;box-shadow:var(--sh);overflow:hidden}
+.ws-bar{display:flex;align-items:center;gap:.8rem;padding:.75rem 1.4rem;border-bottom:1px solid var(--line-2)}
+.hosp{width:2.2rem;height:2.2rem;border-radius:.6rem;background:var(--info-soft);color:var(--info);display:grid;place-items:center;flex:none}
+.ws-bar b{font-size:1rem;display:block;line-height:1.25}
+.ws-bar .sub{color:var(--muted);font-size:.8rem}
+.grow{flex:1}
+.who{display:flex;align-items:center;gap:.65rem;font-size:.86rem;text-align:right}
+.who b{font-size:.9rem}
+.avatar{width:2.2rem;height:2.2rem;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.8rem;background:#e9eef2;color:var(--ink-2);flex:none}
+.pt{display:flex;align-items:center;gap:1rem;padding:.95rem 1.4rem;background:linear-gradient(180deg,#f4fafb,#fff)}
+.pt .avatar{width:3.1rem;height:3.1rem;font-size:1.02rem;background:var(--accent);color:#fff}
+.pt h1{margin:0;font-size:1.32rem;letter-spacing:-.01em;line-height:1.25}
+.pt .meta{color:var(--muted);font-size:.9rem}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:.35rem;padding:.26rem .68rem;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;background:#eef2f5;color:var(--ink-2);line-height:1.3}
+.chip .i{width:1.05em;height:1.05em;stroke-width:2}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.chip.alert{background:var(--alert-soft);color:var(--alert)}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.chip.info{background:var(--info-soft);color:var(--info)}
+.tabs{display:flex;gap:.2rem;padding:0 1.2rem;border-bottom:1px solid var(--line)}
+.tab{border:0;background:none;padding:.7rem .85rem;font-size:.9rem;color:var(--muted);font-weight:600;border-bottom:2.5px solid transparent;display:flex;gap:.45rem;align-items:center;cursor:default;transition:color .3s,border-color .3s}
+.tab.click{cursor:pointer}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.ws-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.2rem;padding:1.25rem 1.4rem;background:#f8fafb;align-items:start;overflow:hidden}
+
+/* stacked views: every step is rendered from the step number */
+.stack{display:grid;min-width:0}
+.stack>.view{grid-area:1/1;min-width:0;display:flex;flex-direction:column;gap:1rem;opacity:0;visibility:hidden;transform:translateY(12px);
+  transition:opacity .3s ease,transform .4s var(--ease),visibility 0s linear .4s;pointer-events:none}
+.stack>.view.on{opacity:1;visibility:visible;transform:none;pointer-events:auto;transition:opacity .4s ease .1s,transform .5s var(--ease) .1s,visibility 0s}
+.rv{opacity:0;transform:translateY(8px);transition:opacity .3s ease,transform .4s var(--ease)}
+.rv.on{opacity:1;transform:none;transition:opacity .4s ease var(--d,0s),transform .5s var(--ease) var(--d,0s)}
+
+/* cards */
+.card{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:1.1rem 1.25rem 1.2rem;box-shadow:0 1px 2px rgba(16,24,40,.04);overflow:hidden;transition:box-shadow .25s,background .25s}
+.card-h{display:flex;align-items:center;gap:.7rem;margin-bottom:.95rem}
+.card-h h2{margin:0;font-size:1.08rem;letter-spacing:-.005em;line-height:1.25}
+.card-h .sub{color:var(--muted);font-size:.84rem}
+.ic{width:2.25rem;height:2.25rem;border-radius:.65rem;display:grid;place-items:center;flex:none;background:#eef2f5;color:var(--ink-2)}
+.ic.acc{background:var(--accent-soft);color:var(--accent)}
+.ic.info{background:var(--info-soft);color:var(--info)}
+.ic.ai{background:linear-gradient(140deg,#e6f3f4,#e8f1f8);color:var(--accent)}
+.prog{position:absolute;left:0;top:0;height:3px;width:100%;background:linear-gradient(90deg,transparent,var(--accent-2),transparent);background-size:50% 100%;background-repeat:no-repeat;opacity:0}
+.prog.on{animation:sweep 1s linear 0s 1 both}
+@keyframes sweep{0%{opacity:1;background-position:-60% 0}85%{opacity:1}100%{opacity:0;background-position:160% 0}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;border-radius:.7rem;border:1px solid transparent;font-weight:650;cursor:pointer;padding:.72rem 1.15rem;font-size:.98rem;transition:transform .15s,box-shadow .2s,background .2s}
+.btn.primary{background:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(11,110,121,.25),0 6px 16px rgba(11,110,121,.18)}
+.btn.primary:hover{background:#0a636d}
+.btn:active{transform:scale(.98)}
+.btn.big{width:100%;padding:1rem 1.2rem;font-size:1.05rem}
+.btn.full{width:100%}
+.note{color:var(--muted);font-size:.84rem;margin-top:.7rem;text-align:center}
+
+/* step 0 */
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:.7rem 1.4rem;margin:0 0 1.3rem;font-size:1rem}
+.facts dt{color:var(--muted);font-size:.9rem;padding-top:.08rem}
+.facts dd{margin:0;min-width:0}
+.how-list{list-style:none;margin:0;padding:0;display:grid;gap:1.05rem}
+.how-list li{display:grid;grid-template-columns:2rem 1fr;gap:.8rem;align-items:start}
+.how-list .num{width:2rem;height:2rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:.9rem}
+.how-list b{display:block;font-size:1rem}
+.how-list p{color:var(--muted);font-size:.92rem;margin-top:.1rem}
+.trust{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line-2)}
+
+/* step 1 records */
+.recs{list-style:none;margin:0;padding:0;display:grid;gap:.6rem}
+.grp{border:1px solid var(--line);border-radius:var(--r-sm);padding:.65rem .85rem;background:#fff}
+.grp-h{display:flex;align-items:center;gap:.5rem;font-size:.84rem;color:var(--muted);margin-bottom:.38rem}
+.grp-h b{color:var(--ink-2);font-weight:650}
+.grp-r{display:flex;align-items:center;gap:.7rem}
+.grp-r .rt{font-weight:600;font-size:1rem;flex:1;min-width:0}
+.grp-r .rd{color:var(--muted);font-size:.9rem;white-space:nowrap}
+.flag{width:1.25rem;height:.84rem;border-radius:2px;display:inline-block;box-shadow:0 0 0 1px rgba(0,0,0,.1);flex:none}
+.flag.hu{background:linear-gradient(#cd2a3e 0 33.3%,#fff 33.3% 66.6%,#436f4d 66.6%)}
+.flag.at{background:linear-gradient(#c8102e 0 33.3%,#fff 33.3% 66.6%,#c8102e 66.6%)}
+.tag{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .6rem;border-radius:.45rem;font-size:.78rem;font-weight:650;white-space:nowrap}
+.tag .i{width:1.05em;height:1.05em}
+.t-img{background:#eef0fb;color:#3d4a9e}
+.t-lab{background:var(--accent-soft);color:var(--accent)}
+.t-med{background:#f3eefa;color:#664a98}
+.t-dis{background:#edf1f4;color:#44525e}
+.locked{display:flex;align-items:center;gap:.65rem;padding:.65rem .85rem;border-radius:var(--r-sm);border:1px dashed #e8c5c2;background:var(--alert-soft);color:var(--alert);font-size:.92rem;font-weight:600}
+.caption{display:flex;align-items:center;gap:.55rem;color:var(--accent);font-size:.93rem;font-weight:600;margin-top:.95rem;padding:.65rem .85rem;border-radius:var(--r-sm);background:var(--accent-softer)}
+
+/* emergency */
+.em-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.em-item{display:flex;gap:.65rem;align-items:center;padding:.7rem .8rem;border-radius:var(--r-sm);background:#f7f9fb;border:1px solid var(--line-2)}
+.em-item .i{color:var(--info);width:1.4em;height:1.4em}
+.em-item small{display:block;color:var(--muted);font-size:.76rem}
+.em-item b{font-size:1rem}
+.em-c{display:flex;align-items:center;gap:.8rem;padding:.85rem 1.1rem}
+.em-c small{display:block;color:var(--muted);font-size:.78rem}
+.em-c b{font-size:1rem}
+.hl{box-shadow:0 0 0 2px var(--accent),0 8px 22px rgba(11,110,121,.18)!important;background:#f4fbfb!important}
+
+/* request form */
+.checks{display:grid;gap:.45rem;margin-bottom:1rem;transition:opacity .3s}
+body[data-step="2"] .checks,body[data-step="2"] .reason-wrap{opacity:.55;pointer-events:none}
+.ck{display:flex;align-items:center;gap:.7rem;padding:.5rem .65rem;border-radius:.6rem;border:1px solid var(--line-2);cursor:pointer;font-size:.95rem;position:relative}
+.ck:hover{background:#fafcfd}
+.ck input{position:absolute;opacity:0;pointer-events:none}
+.box{width:1.3rem;height:1.3rem;border-radius:.38rem;border:1.6px solid #b9c4cd;display:grid;place-items:center;flex:none;transition:all .2s}
+.box .i{opacity:0;color:#fff;width:.95rem;height:.95rem;stroke-width:3}
+.ck input:checked+.box{background:var(--accent);border-color:var(--accent)}
+.ck input:checked+.box .i{opacity:1}
+.ck .rt{flex:1;color:var(--ink-2)}
+.ck .src{color:var(--muted);font-size:.8rem}
+.fl{display:block;font-size:.82rem;color:var(--muted);font-weight:600;margin:0 0 .35rem}
+.inp{width:100%;font:inherit;font-size:.98rem;padding:.65rem .8rem;border:1px solid var(--line);border-radius:.6rem;color:var(--ink);background:#fff}
+.inp:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.valid{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.86rem;margin:.65rem 0 1rem}
+.pending{display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;border-radius:.7rem;background:var(--warn-soft);color:var(--warn-ink);border:1px solid #f0dfb5}
+.pending b{display:block;font-size:.98rem}
+.pending small{font-size:.82rem}
+.spin{width:1.25rem;height:1.25rem;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* step 3 docs */
+.banner{display:flex;align-items:center;gap:.7rem;padding:.8rem 1.05rem;border-radius:var(--r);background:var(--ok-soft);color:var(--ok);font-size:.98rem;border:1px solid #cfe9d8}
+.banner b{font-weight:700}
+.banner .i{width:1.5em;height:1.5em}
+.docs{list-style:none;margin:0;padding:0;display:grid;gap:.6rem}
+.doc{position:relative;display:flex;gap:.8rem;align-items:flex-start;padding:.7rem .85rem;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;opacity:0;transform:translateX(14px);transition:opacity .35s ease,transform .45s var(--ease),box-shadow .25s,background .25s}
+.doc.pending,.doc.arrived{opacity:1;transform:none}
+.cat{width:2.3rem;height:2.3rem;border-radius:.6rem;display:grid;place-items:center;flex:none}
+.cat .i{width:1.25em;height:1.25em}
+.doc-main{flex:1;min-width:0;display:grid}
+.doc-main>*{grid-area:1/1}
+.doc-c{transition:opacity .35s ease .05s}
+.doc-t{font-weight:650;font-size:.98rem;line-height:1.3;padding-right:2rem}
+.doc-s{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-size:.82rem;margin:.15rem 0 .45rem}
+.doc .chips{gap:.4rem}
+.doc .chip{font-size:.74rem;padding:.2rem .55rem}
+.skel{display:flex;flex-direction:column;justify-content:center;gap:.45rem;transition:opacity .3s ease}
+.skel .sb{height:.62rem;border-radius:.4rem;background:linear-gradient(90deg,#edf1f4 0%,#dcebed 40%,#edf1f4 80%);background-size:250% 100%;animation:shim 1.1s linear infinite}
+.skel span{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.4rem}
+@keyframes shim{from{background-position:120% 0}to{background-position:-120% 0}}
+.doc .doc-c{opacity:0}
+.doc.arrived .doc-c{opacity:1}
+.doc.arrived .skel{opacity:0}
+.doc .ok-dot{position:absolute;right:.7rem;top:.7rem;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;flex:none;opacity:0;transform:scale(.6);transition:opacity .3s,transform .35s var(--ease)}
+.doc.arrived .ok-dot{opacity:1;transform:none}
+.ok-dot .i{width:1rem;height:1rem;stroke-width:2.6}
+.key{display:flex;align-items:center;gap:.6rem;margin-top:.9rem;padding:.75rem .95rem;border-radius:var(--r-sm);background:var(--accent-softer);color:var(--accent);font-weight:650;font-size:.96rem}
+.key .i{width:1.35em;height:1.35em}
+
+/* AI summary */
+.ai-lines{list-style:none;margin:0;padding:0;display:grid;gap:.15rem}
+.ai-lines li{display:grid;grid-template-columns:1.1rem 1fr;gap:.65rem;padding:.6rem 0;border-bottom:1px solid var(--line-2)}
+.ai-lines li:last-child{border-bottom:0}
+.ai-lines .dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--accent);margin-top:.5rem;justify-self:center}
+.ai-lines .txt{font-size:.98rem;line-height:1.38;color:var(--ink)}
+.evs{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.35rem}
+.ev{display:inline-flex;align-items:center;gap:.3rem;border:1px solid #cfe3e6;background:#f4fafb;color:var(--accent);border-radius:.45rem;padding:.14rem .5rem;font-size:.76rem;font-weight:650;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.ev .i{width:.95em;height:.95em;stroke-width:2.2}
+.ev:hover,.ev.act{background:var(--accent);color:#fff;border-color:var(--accent)}
+.disc{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.84rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--line-2)}
+.ph-lines{display:grid;gap:1.1rem;margin-top:1.6rem;padding:1.1rem 0 .4rem;border-top:1px dashed var(--line)}
+.ph-lines i{display:block;height:.6rem;border-radius:.4rem;background:#f0f3f5}
+.ai-cta p{color:var(--muted);font-size:.95rem;margin-bottom:1rem}
+
+/* step 6 paper */
+.paper-wrap{padding:.4rem .6rem .8rem;display:flex;justify-content:center}
+.paper{position:relative;width:100%;max-width:30rem;background:#fffdf7;border:1px solid #ebe5d6;border-radius:.3rem;box-shadow:0 2px 3px rgba(60,50,20,.06),0 12px 26px rgba(60,50,20,.1);padding:1.2rem 1.5rem 1rem;transform:rotate(-.7deg);font-family:Georgia,"Times New Roman",serif;color:#3d3a33;overflow:hidden}
+.lh{padding-bottom:.55rem;border-bottom:1.5px solid #b9b2a0;margin-bottom:.7rem}
+.lh-name{font-size:1.2rem;font-weight:700;letter-spacing:.01em}
+.lh-sub{font-size:.76rem;color:#6f6a5e}
+.pl{font-size:.8rem;margin:.15rem 0}
+.p-title{font-size:.95rem;font-weight:700;margin:.5rem 0 .2rem}
+.lines{display:grid;gap:.48rem;margin:.65rem 0 .5rem}
+.lines i{display:block;height:.42rem;border-radius:.2rem;background:#e6e1d3}
+.sig{width:6.5rem;height:2.1rem;fill:none;stroke:#2f4f7f;stroke-width:1.6;stroke-linecap:round}
+.scanline{position:absolute;left:0;right:0;top:-12%;height:12%;background:linear-gradient(180deg,rgba(14,138,151,0),rgba(14,138,151,.22) 80%,rgba(14,138,151,.85));opacity:0}
+.paper-v.on .scanline{animation:scan 1.5s ease-in-out .45s 1 both}
+@keyframes scan{0%{top:-12%;opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+.detect{position:absolute;left:1rem;right:1rem;top:.75rem;height:3.25rem;border:2px solid var(--accent-2);border-radius:.4rem;background:rgba(14,138,151,.06);opacity:0;transform:scale(.97)}
+.detect span{position:absolute;right:-.15rem;bottom:-1.55rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:.72rem;font-weight:700;color:#fff;background:var(--accent);padding:.15rem .5rem;border-radius:.35rem;white-space:nowrap}
+.paper-v.on .detect{animation:pop .4s var(--ease) 1.75s both}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.ocr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.9rem}
+.ocr div{padding:.5rem .65rem;border-radius:.6rem;background:#f7f9fb;border:1px solid var(--line-2);min-width:0}
+.ocr small{display:block;color:var(--muted);font-size:.72rem}
+.ocr b{font-size:.84rem;display:block;line-height:1.3}
+
+/* map */
+.map{position:relative;height:16.5rem;border-radius:var(--r-sm);border:1px solid var(--line-2);overflow:hidden;
+  background-color:#f6fafb;background-image:radial-gradient(circle,#d9e4e8 1px,transparent 1.3px);background-size:14px 14px}
+.ctry{position:absolute;transform:translate(-50%,-50%);font-size:.74rem;letter-spacing:.32em;font-weight:700;color:#c2cfd5}
+.links{position:absolute;inset:0;width:100%;height:100%}
+.links line{stroke:#9fcfd4;stroke-width:1.5;stroke-dasharray:4 4;vector-effect:non-scaling-stroke}
+.links line.new{stroke:var(--ok);stroke-dasharray:none;opacity:0}
+.map-v.on .links line.new{animation:fadein .5s ease 2.2s both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.node{position:absolute;width:0;height:0}
+.node>i{position:absolute;width:.9rem;height:.9rem;left:-.45rem;top:-.45rem;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(11,110,121,.15)}
+.node.me>i{background:var(--info);box-shadow:0 0 0 4px rgba(34,87,122,.15)}
+.node.new>i{background:var(--ok);box-shadow:0 0 0 4px rgba(30,123,69,.18)}
+.node.new{opacity:0}
+.map-v.on .node.new{animation:fadein .4s ease 2.2s both}
+.map-v.on .node.new>i::after{content:"";position:absolute;inset:-.45rem;border-radius:50%;border:2px solid var(--ok);animation:ring 1.3s ease-out 2.3s 2 both}
+@keyframes ring{from{opacity:.9;transform:scale(.6)}to{opacity:0;transform:scale(2.2)}}
+.lbl{position:absolute;white-space:nowrap;font-size:.8rem;font-weight:650;color:var(--ink-2);background:rgba(255,255,255,.92);padding:.1rem .42rem;border-radius:.4rem;line-height:1.3;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.lbl small{display:block;font-weight:500;color:var(--muted);font-size:.72rem}
+.node.new .lbl{color:var(--ok)}
+.lbl.r{left:1rem;top:0;transform:translateY(-50%)}
+.lbl.l{right:1rem;top:0;transform:translateY(-50%)}
+.lbl.b{top:.9rem;left:0;transform:translateX(-50%)}
+.lbl.t{bottom:.9rem;left:0;transform:translateX(-50%)}
+.lbl.tr{bottom:.9rem;left:-.7rem}
+.legend{display:flex;gap:1rem;color:var(--muted);font-size:.8rem;margin-top:.7rem}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.legend i{width:.6rem;height:.6rem;border-radius:50%;display:block}
+
+/* ---------- phone ---------- */
+.phone-pane{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.9rem;padding:1rem 1.4rem;min-width:0;background:linear-gradient(180deg,#edf3f5,#f3f5f7);border-left:1px solid var(--line)}
+.ph-label{display:flex;align-items:center;gap:.6rem;color:var(--ink-2);font-size:.86rem}
+.ph-label b{display:block;font-size:.95rem;line-height:1.2}
+.ph-label small{color:var(--muted);font-size:.78rem}
+.ph-label .avatar{background:var(--accent);color:#fff;width:2rem;height:2rem;font-size:.74rem}
+.phone{height:min(calc(100vh - 4rem - 6.4rem),53rem);aspect-ratio:9/19.3;background:#10161b;border-radius:3.3rem;padding:.62rem;box-shadow:0 30px 60px -22px rgba(16,24,40,.45),0 0 0 1.5px #2b343c inset;flex:none}
+.screen{position:relative;height:100%;border-radius:2.75rem;overflow:hidden;background:#fff;font-size:.86rem;color:var(--ink)}
+.island{position:absolute;top:.62rem;left:50%;transform:translateX(-50%);width:6.6em;height:1.95em;background:#10161b;border-radius:1.2em;z-index:40}
+.sbar{position:absolute;top:0;left:0;right:0;height:3.3em;display:flex;align-items:center;justify-content:space-between;padding:.3em 2em 0 2.3em;font-weight:650;font-size:1em;z-index:35}
+.sbar svg{height:.95em;width:auto;fill:currentColor}
+.homebar{position:absolute;bottom:.5em;left:50%;transform:translateX(-50%);width:9em;height:.32em;border-radius:1em;background:#10161b;opacity:.85;z-index:40}
+.pv{position:absolute;inset:0;padding:3.6em 1.25em 1.6em;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateY(10px) scale(.99);transition:opacity .35s ease,transform .45s var(--ease),visibility 0s linear .45s}
+.pv.on{opacity:1;visibility:visible;transform:none;transition:opacity .4s ease .08s,transform .5s var(--ease) .08s,visibility 0s}
+.lock{background:radial-gradient(120% 70% at 20% 0%,#cfe9ec 0%,rgba(207,233,236,0) 60%),radial-gradient(90% 60% at 100% 100%,#dbe8f3 0%,rgba(219,232,243,0) 60%),#f4f8f9;align-items:center;text-align:center}
+.lock .lk{transition:filter .4s,opacity .4s;width:100%;display:flex;flex-direction:column;align-items:center}
+body[data-step="2"] .lock .lk{filter:blur(3px);opacity:.55}
+.lk-date{margin-top:2.2em;font-size:1.1em;font-weight:600;color:#2c4a52}
+.lk-time{font-size:5.6em;font-weight:700;letter-spacing:-.02em;line-height:1;color:#123840}
+.widget{margin-top:2.4em;width:100%;display:flex;align-items:center;gap:.8em;padding:.9em 1em;border-radius:1.3em;background:rgba(255,255,255,.65);backdrop-filter:blur(10px);text-align:left;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.widget+.widget{margin-top:.7em}
+.widget b{display:block;font-size:.98em}
+.widget small{color:var(--muted);font-size:.86em}
+.w-ic{width:2.4em;height:2.4em;border-radius:.7em;display:grid;place-items:center;background:var(--info-soft);color:var(--info);flex:none}
+.w-ic .i{width:1.35em;height:1.35em}
+
+.notif{position:absolute;top:3.5em;left:.6em;right:.6em;z-index:20;display:flex;gap:.75em;align-items:flex-start;padding:.85em .95em;border-radius:1.35em;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(16,24,40,.18);transform:translateY(-140%);opacity:0;transition:transform .5s var(--ease),opacity .3s ease}
+.notif.on{transform:none;opacity:1}
+.notif .mark{width:2.3em;height:2.3em}
+.n-app{display:flex;justify-content:space-between;font-size:.8em;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.notif b{display:block;font-size:.98em;margin-top:.1em}
+.notif p{font-size:.92em;color:var(--ink-2)}
+.sheet{position:absolute;left:.45em;right:.45em;bottom:.45em;z-index:15;background:#fff;border-radius:2.3em;padding:1.1em 1.25em 1.6em;box-shadow:0 -10px 40px rgba(16,24,40,.18);transform:translateY(105%);transition:transform .45s var(--ease)}
+.sheet.on{transform:none;transition:transform .55s var(--ease) .35s}
+.grab{width:3em;height:.3em;border-radius:1em;background:#d5dce1;margin:0 auto .9em}
+.s-h{display:flex;gap:.75em;align-items:center;margin-bottom:.9em}
+.s-h .hosp{width:2.6em;height:2.6em;border-radius:.8em}
+.s-h b{display:block;font-size:1.08em;line-height:1.2}
+.s-h small{color:var(--muted);font-size:.86em}
+.s-row{margin:.55em 0}
+.s-lbl{font-size:.82em;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3em}
+.s-chips{display:flex;flex-wrap:wrap;gap:.35em}
+.s-chips .tag{font-size:.86em}
+.s-txt{font-size:1em;color:var(--ink)}
+.s-valid{display:flex;align-items:center;gap:.45em;font-weight:600;color:var(--ink-2);font-size:.96em;margin:.8em 0 1em;padding:.6em .75em;border-radius:.8em;background:#f5f8fa}
+.pbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5em;border-radius:1em;padding:.85em;font-weight:650;font-size:1em;border:1px solid transparent;cursor:pointer;transition:transform .15s}
+.pbtn:active{transform:scale(.98)}
+.pbtn.pri{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(11,110,121,.25)}
+.pbtn.sec{background:#fff;color:var(--accent);border-color:#bcdade;margin-top:.55em}
+.pbtn.txt{background:none;color:var(--alert);margin-top:.25em;padding:.6em}
+.decl{font-size:.84em;color:var(--muted);text-align:center;height:0;overflow:hidden;opacity:0;transition:opacity .3s}
+.decl.show{height:auto;opacity:1;margin-top:.2em}
+
+.wallet{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(8,22,28,.46);backdrop-filter:blur(5px);opacity:0;visibility:hidden;transition:opacity .3s ease,visibility 0s linear .3s}
+.wallet.show{opacity:1;visibility:visible;transition:opacity .3s ease}
+.w-card{width:82%;background:#fff;border-radius:1.8em;padding:1.6em 1.3em 1.5em;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25);transform:translateY(16px) scale(.97);transition:transform .4s var(--ease)}
+.wallet.show .w-card{transform:none}
+.w-top{display:flex;align-items:center;justify-content:center;gap:.5em;font-size:.86em;font-weight:650;color:var(--info)}
+.w-top .i{width:1.3em;height:1.3em}
+.w-card h4{margin:.5em 0 .2em;font-size:1.12em}
+.w-card p{color:var(--muted);font-size:.9em}
+.w-vis{position:relative;width:5.4em;height:5.4em;margin:1.2em auto .9em}
+.w-vis svg{position:absolute;inset:0;width:100%;height:100%}
+.face{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;transition:opacity .25s}
+.wallet.scan .face{animation:breathe 1s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45;transform:scale(.94)}}
+.face{transform-origin:50% 50%}
+.okc{opacity:0;transition:opacity .25s}
+.okc circle{fill:var(--ok)}
+.okc path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40}
+.wallet.done .face{opacity:0;animation:none}
+.wallet.done .okc{opacity:1}
+.wallet.done .okc path{transition:stroke-dashoffset .45s var(--ease) .1s;stroke-dashoffset:0}
+.w-state{font-weight:650;font-size:.95em;color:var(--ink-2)}
+.wallet.done .w-state{color:var(--ok)}
+
+.app{background:#f6f8fa}
+.app-h{display:flex;align-items:center;gap:.6em;margin:.2em 0 1em}
+.app-h b{font-size:1.05em}
+.app-h .ttl{font-size:1.55em;letter-spacing:-.01em}
+.app-h .avatar{width:2.2em;height:2.2em;font-size:.8em;background:var(--accent);color:#fff}
+.hero{text-align:center;padding:.6em 0 1.1em}
+.big-ok{width:4.4em;height:4.4em;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;margin:0 auto .8em}
+.big-ok .i{width:2.2em;height:2.2em;stroke-width:2.6}
+.hero h3{margin:0;font-size:1.22em;line-height:1.3}
+.hero p{color:var(--muted);font-size:.9em;margin-top:.3em}
+.pcard{background:#fff;border-radius:1.1em;padding:.9em 1em;border:1px solid var(--line-2);margin-bottom:.7em}
+.pc-h{font-size:.8em;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.45em}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:.4em}
+.plist li{display:flex;align-items:center;gap:.55em;font-size:.98em;font-weight:550}
+.plist .i{color:var(--ok);stroke-width:2.6;width:1.1em;height:1.1em}
+.pc-row{display:flex;gap:.7em;align-items:center}
+.pc-row .i{color:var(--accent);width:1.4em;height:1.4em}
+.pc-row b{display:block;font-size:.98em}
+.pc-row small{color:var(--muted);font-size:.86em}
+.p-grow{flex:1}
+.psec{font-size:.8em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:.3em 0 .5em .2em}
+.log,.rules{list-style:none;margin:0 0 1em;padding:0;background:#fff;border-radius:1.1em;border:1px solid var(--line-2);overflow:hidden}
+.log li,.rules li{display:flex;gap:.7em;align-items:flex-start;padding:.7em .9em;border-top:1px solid var(--line-2)}
+.log li:first-child,.rules li:first-child{border-top:0}
+.log li.new{background:#f2faf5}
+.log .dot{width:.6em;height:.6em;border-radius:50%;margin-top:.45em;flex:none}
+.log .txt,.rules .txt{flex:1;min-width:0}
+.log b,.rules b{display:block;font-size:.96em;line-height:1.3}
+.log small,.rules small{display:block;color:var(--muted);font-size:.84em;line-height:1.35}
+.log time{font-size:.82em;color:var(--muted);font-weight:600;white-space:nowrap}
+.xs{font-size:.74em!important;padding:.12em .55em!important;margin-top:.3em}
+.rules li{align-items:center}
+.ric{width:2em;height:2em;border-radius:.6em;background:#f1f5f7;color:var(--ink-2);display:grid;place-items:center;flex:none}
+.dnb{display:flex;gap:.8em;align-items:center;background:#fff;border-radius:1.1em;border:1px solid var(--line-2);padding:.85em 1em}
+.dnb b{display:block;font-size:.98em}
+.dnb small{color:var(--muted);font-size:.84em;line-height:1.35;display:block}
+.switch{width:3.1em;height:1.85em;border-radius:1em;border:0;background:#d5dce1;position:relative;cursor:pointer;flex:none;transition:background .25s}
+.switch::after{content:"";position:absolute;top:.18em;left:.18em;width:1.5em;height:1.5em;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .25s var(--ease)}
+.switch[aria-checked=true]{background:var(--ok)}
+.switch[aria-checked=true]::after{transform:translateX(1.25em)}
+.toast{position:absolute;top:3.5em;left:.6em;right:.6em;z-index:20;display:flex;gap:.75em;align-items:center;padding:.8em .95em;border-radius:1.35em;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(16,24,40,.18);transform:translateY(-140%);opacity:0;transition:transform .45s var(--ease),opacity .3s}
+.toast.on{transform:none;opacity:1;transition:transform .5s var(--ease) 2.4s,opacity .3s 2.4s}
+.toast b{display:block;font-size:.95em}
+.toast small{color:var(--muted);font-size:.85em}
+
+@media (max-height:960px){
+  .ws-bar{padding:.5rem 1.3rem}.pt{padding:.6rem 1.3rem}.tab{padding:.55rem .8rem}
+  .ws-body{padding:1rem 1.2rem}.stack>.view{gap:.75rem}
+  .docs,.recs{gap:.45rem}.doc{padding:.55rem .75rem}.doc-s{margin:.1rem 0 .3rem}
+  .banner{padding:.6rem .9rem}.key,.caption{margin-top:.6rem;padding:.55rem .8rem}
+  .card{padding:.95rem 1.1rem 1rem}.card-h{margin-bottom:.75rem}
+}
+.hint{position:fixed;left:1rem;bottom:.9rem;z-index:50;font-size:.74rem;color:var(--muted);background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:.6rem;padding:.35rem .6rem;box-shadow:var(--sh);transition:opacity .6s}
+.hint.gone{opacity:0;pointer-events:none}
+.hint kbd{font:inherit;font-weight:700;color:var(--ink-2);background:#f1f4f6;border:1px solid var(--line);border-radius:.3rem;padding:0 .3rem}
+</style>
+</head>
+<body data-step="0" data-focus="doctor">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="dove" viewBox="0 0 48 48">
+      <path fill="#fff" d="M4 34.5 11.5 28.6C16 25.4 22 25.8 27 22.2 30 19.8 31.6 15.2 36 15c2.8-.1 4.8 1.7 5.2 4.1l4.3 1.6-4.4 1.4c-.9 5.6-5.6 10.2-13.4 11.3-6.1.8-11.4-.6-16-1.5L4 34.5Z"/>
+      <path fill="#fff" stroke="#0b6e79" stroke-width="1.7" stroke-linejoin="round" d="M19.5 26.6C17.6 19.4 14.4 12.6 10.2 6.8c8.4 1.6 16.4 7 20.6 15.2-3 2.6-6.6 4-11.3 4.6Z"/>
+      <circle cx="37.3" cy="18.7" r="1.15" fill="#0b6e79"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+    <symbol id="i-net" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M10.9 7 6.1 16M13.1 7l4.8 9M7.2 18h9.6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5.2c0 4.4-3 8.2-7 9.8-4-1.6-7-5.4-7-9.8V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5 15.5 11 6 19.5"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3.5h6M10 3.5v5.8L5.2 17.6A2 2 0 0 0 6.9 20.5h10.2a2 2 0 0 0 1.7-2.9L14 9.3V3.5"/><path d="M7.6 14.5h8.8"/></symbol>
+    <symbol id="i-pill" viewBox="0 0 24 24"><path d="M10.5 20.5a5 5 0 0 1-7-7l6-6a5 5 0 0 1 7 7z"/><path d="M8.5 8.5l7 7"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l4.5 4.5v12.5H7z"/><path d="M14 3.5V8h4.5M9.8 12.5h5.5M9.8 16h5.5"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11z"/></symbol>
+    <symbol id="i-allergy" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4v16M5.1 8l13.8 8M5.1 16 18.9 8"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.2M12 7.8h.01"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.5l1.7 4.8 4.8 1.7-4.8 1.7L11 16.5l-1.7-4.8L4.5 10l4.8-1.7z"/><path d="M18 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13.5" rx="3"/><path d="M3 10.5h18M15.5 15h2.5M7 6l8.5-2.5L17 6"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a7.5 7.5 0 0 1-11 6.6L4.5 19.8l1.2-4.1A7.5 7.5 0 1 1 20 12z"/></symbol>
+    <symbol id="i-hosp" viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2.2"/><path d="M12 7v6M9 10h6M9.5 20.5v-3.5h5v3.5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 10 14M20.5 3.5 14 20.5l-4-6.5-6.5-4z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5 6 5h12l2.5 8.5v5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 13.5H8.5l1.5 2.5h4l1.5-2.5h5"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></symbol>
+    <symbol id="i-bed" viewBox="0 0 24 24"><path d="M3 18.5V7M3 14.5h18v4M21 14.5V12a3 3 0 0 0-3-3h-7v5.5"/><circle cx="7" cy="11" r="1.8"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <span class="mark"><svg><use href="#dove"/></svg></span>
+    <div><b>Brieftaube Network</b><small>Patient-approved records across borders</small></div>
+  </div>
+  <nav class="steps" id="steps" aria-label="Steps"></nav>
+  <div class="badge"><i></i>Vision prototype · synthetic data · fictional names</div>
+</header>
+
+<main>
+  <!-- ================= doctor workstation ================= -->
+  <section class="doctor" aria-label="Doctor workstation">
+    <div class="ws">
+      <div class="ws-bar">
+        <span class="hosp"><svg class="i"><use href="#i-hosp"/></svg></span>
+        <div><b>Unfallklinik Alpenblick</b><span class="sub">Trauma surgery · Tyrol, Austria</span></div>
+        <span class="grow"></span>
+        <div class="who"><div><b>Dr. Jakob Rainer</b><div class="muted" style="font-size:.78rem">Trauma surgeon</div></div><span class="avatar">JR</span></div>
+      </div>
+      <div class="pt">
+        <span class="avatar">MK</span>
+        <div>
+          <h1>Monika Kovács</h1>
+          <div class="meta">34 years · female · DOB 14 Mar 1992 · Hungary</div>
+        </div>
+        <span class="grow"></span>
+        <div class="chips">
+          <span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>EU eID verified</span>
+          <span class="chip">Right tibia fracture · surgery today</span>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button class="tab" data-tab="0"><svg class="i"><use href="#i-bed"/></svg>Admission</button>
+        <button class="tab" data-tab="1"><svg class="i"><use href="#i-net"/></svg>Network records</button>
+        <button class="tab click" data-tab="2" id="tab-paper"><svg class="i"><use href="#i-scan"/></svg>Paper intake</button>
+      </nav>
+
+      <div class="ws-body">
+        <!-- ===== left column ===== -->
+        <div class="stack">
+          <!-- step 0: admission -->
+          <div class="view" data-s="0">
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-bed"/></svg></span><div><h2>New admission</h2><div class="sub">Emergency department · 30 Oct 2026, 13:58</div></div></div>
+              <dl class="facts">
+                <dt>Patient</dt><dd><b>Monika Kovács</b>, 34</dd>
+                <dt>Identified via</dt><dd><span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>EU eID verified</span> <span class="muted" style="font-size:.88rem">&nbsp;Hungarian eID · 13:58</span></dd>
+                <dt>Reason</dt><dd>Right lower-leg fracture after a skiing accident</dd>
+                <dt>Plan</dt><dd>Surgery today</dd>
+                <dt>Local records</dt><dd class="muted">None. First visit to this hospital.</dd>
+              </dl>
+              <button class="btn primary big" id="btn-find"><svg class="i"><use href="#i-search"/></svg>Find records in the Brieftaube Network</button>
+              <p class="note">Asks the network address book across EU institutions. Seconds, not days.</p>
+            </div>
+          </div>
+
+          <!-- steps 1-2: metadata results -->
+          <div class="view" data-s="1-2">
+            <div class="card">
+              <div class="prog" data-s="1"></div>
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-net"/></svg></span><div><h2>Found in the Brieftaube Network</h2><div class="sub">4 institutions · 2 countries · metadata only</div></div><span class="grow"></span><span class="chip acc"><svg class="i"><use href="#i-info"/></svg>Metadata only</span></div>
+              <ul class="recs">
+                <li class="grp rv" data-s="1-2" style="--d:.25s">
+                  <div class="grp-h"><span class="flag hu"></span><b>Rendelő Budapest</b>· Budapest, Hungary</div>
+                  <div class="grp-r"><span class="tag t-img"><svg class="i"><use href="#i-image"/></svg>Imaging</span><span class="rt">Right knee MRI</span><span class="rd">2024</span></div>
+                </li>
+                <li class="grp rv" data-s="1-2" style="--d:.4s">
+                  <div class="grp-h"><span class="flag at"></span><b>Labor Wien Mitte</b>· Vienna, Austria</div>
+                  <div class="grp-r"><span class="tag t-lab"><svg class="i"><use href="#i-flask"/></svg>Lab</span><span class="rt">Coagulation panel</span><span class="rd">22 Oct 2026</span></div>
+                </li>
+                <li class="grp rv" data-s="1-2" style="--d:.55s">
+                  <div class="grp-h"><span class="flag hu"></span><b>GP Dr. Szabó</b>· Győr, Hungary</div>
+                  <div class="grp-r"><span class="tag t-med"><svg class="i"><use href="#i-pill"/></svg>Medication list</span><span class="rt">Current medication</span><span class="rd">Sep 2026</span></div>
+                </li>
+                <li class="grp rv" data-s="1-2" style="--d:.7s">
+                  <div class="grp-h"><span class="flag hu"></span><b>Szeged hospital</b>· Szeged, Hungary</div>
+                  <div class="grp-r"><span class="tag t-dis"><svg class="i"><use href="#i-doc"/></svg>Discharge report</span><span class="rt">Inpatient stay</span><span class="rd">2023</span></div>
+                </li>
+                <li class="locked rv" data-s="1-2" style="--d:.9s"><svg class="i"><use href="#i-lock"/></svg>1 record hidden: category not relevant to your role</li>
+              </ul>
+              <p class="caption rv" data-s="1-2" style="--d:1.1s"><svg class="i"><use href="#i-info"/></svg>The network knows where records are, never what's in them.</p>
+            </div>
+          </div>
+
+          <!-- steps 3-5: received documents -->
+          <div class="view" data-s="3-5">
+            <div class="banner"><svg class="i"><use href="#i-checkc"/></svg><div><b>Approved by the patient at 14:12</b> via EU Digital Identity Wallet</div></div>
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-inbox"/></svg></span><div><h2>Received documents</h2><div class="sub" id="recv">Receiving from 4 secure boxes…</div></div></div>
+              <ul class="docs">
+                <li class="doc" data-doc="mri">
+                  <span class="cat t-img"><svg class="i"><use href="#i-image"/></svg></span>
+                  <div class="doc-main">
+                    <div class="doc-c">
+                      <div class="doc-t">Right knee MRI · report and images</div>
+                      <div class="doc-s"><span class="flag hu"></span>Rendelő Budapest · 2024 · Hungarian</div>
+                      <div class="chips"><span class="chip"><svg class="i"><use href="#i-lock"/></svg>End-to-end encrypted</span><span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>from Rendelő Budapest · verified</span></div>
+                    </div>
+                    <div class="skel"><div class="sb" style="width:70%"></div><div class="sb" style="width:45%"></div><span><svg class="i"><use href="#i-lock"/></svg>Receiving from secure box…</span></div>
+                  </div>
+                  <span class="ok-dot"><svg class="i"><use href="#i-check"/></svg></span>
+                </li>
+                <li class="doc" data-doc="lab">
+                  <span class="cat t-lab"><svg class="i"><use href="#i-flask"/></svg></span>
+                  <div class="doc-main">
+                    <div class="doc-c">
+                      <div class="doc-t">Coagulation panel · INR, aPTT</div>
+                      <div class="doc-s"><span class="flag at"></span>Labor Wien Mitte · 22 Oct 2026 · German</div>
+                      <div class="chips"><span class="chip"><svg class="i"><use href="#i-lock"/></svg>End-to-end encrypted</span><span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>from Labor Wien Mitte · verified</span></div>
+                    </div>
+                    <div class="skel"><div class="sb" style="width:62%"></div><div class="sb" style="width:40%"></div><span><svg class="i"><use href="#i-lock"/></svg>Receiving from secure box…</span></div>
+                  </div>
+                  <span class="ok-dot"><svg class="i"><use href="#i-check"/></svg></span>
+                </li>
+                <li class="doc" data-doc="med">
+                  <span class="cat t-med"><svg class="i"><use href="#i-pill"/></svg></span>
+                  <div class="doc-main">
+                    <div class="doc-c">
+                      <div class="doc-t">Medication list</div>
+                      <div class="doc-s"><span class="flag hu"></span>GP Dr. Szabó, Győr · Sep 2026 · Hungarian</div>
+                      <div class="chips"><span class="chip"><svg class="i"><use href="#i-lock"/></svg>End-to-end encrypted</span><span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>from GP Dr. Szabó · verified</span></div>
+                    </div>
+                    <div class="skel"><div class="sb" style="width:55%"></div><div class="sb" style="width:35%"></div><span><svg class="i"><use href="#i-lock"/></svg>Receiving from secure box…</span></div>
+                  </div>
+                  <span class="ok-dot"><svg class="i"><use href="#i-check"/></svg></span>
+                </li>
+                <li class="doc" data-doc="dis">
+                  <span class="cat t-dis"><svg class="i"><use href="#i-doc"/></svg></span>
+                  <div class="doc-main">
+                    <div class="doc-c">
+                      <div class="doc-t">Discharge report</div>
+                      <div class="doc-s"><span class="flag hu"></span>Szeged hospital · 2023 · Hungarian</div>
+                      <div class="chips"><span class="chip"><svg class="i"><use href="#i-lock"/></svg>End-to-end encrypted</span><span class="chip ok"><svg class="i"><use href="#i-shield"/></svg>from Szeged hospital · verified</span></div>
+                    </div>
+                    <div class="skel"><div class="sb" style="width:66%"></div><div class="sb" style="width:42%"></div><span><svg class="i"><use href="#i-lock"/></svg>Receiving from secure box…</span></div>
+                  </div>
+                  <span class="ok-dot"><svg class="i"><use href="#i-check"/></svg></span>
+                </li>
+              </ul>
+              <p class="key rv" id="key-cap"><svg class="i"><use href="#i-send"/></svg>Released automatically by the source. No doctor had to press send.</p>
+            </div>
+          </div>
+
+          <!-- step 6: paper intake -->
+          <div class="view paper-v" data-s="6">
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-scan"/></svg></span><div><h2>Paper intake</h2><div class="sub">Brought by the patient · scanned 14:16</div></div><span class="grow"></span><span class="chip acc"><svg class="i"><use href="#i-spark"/></svg>OCR + handwriting AI</span></div>
+              <div class="paper-wrap">
+                <div class="paper">
+                  <div class="lh"><div class="lh-name">Ordination Dr. Huber</div><div class="lh-sub">Allgemeinmedizin · Beispielgasse 7 · 8010 Graz</div></div>
+                  <div class="pl" style="text-align:right">Graz, 12.08.2025</div>
+                  <div class="p-title">Befundbericht</div>
+                  <div class="pl">Patientin: Monika Kovács, geb. 14.03.1992</div>
+                  <div class="lines"><i style="width:94%"></i><i style="width:86%"></i><i style="width:90%"></i><i style="width:58%"></i><i style="width:88%"></i><i style="width:70%"></i></div>
+                  <svg class="sig" viewBox="0 0 120 40"><path d="M5 30c10-18 18-22 22-12s-6 16 2 10 14-22 20-14-4 18 4 12 16-14 22-8 10 4 20-2"/></svg>
+                  <div class="scanline"></div>
+                  <div class="detect"><span>Letterhead detected · 98 %</span></div>
+                </div>
+              </div>
+              <div class="ocr rv" data-s="6" style="--d:2s">
+                <div><small>Source</small><b>Ordination Dr. Huber, Graz</b></div>
+                <div><small>Type</small><b>Findings report</b></div>
+                <div><small>Date</small><b>12 Aug 2025</b></div>
+                <div><small>Language</small><b>German</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== right column ===== -->
+        <div class="stack">
+          <!-- step 0 -->
+          <div class="view" data-s="0">
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-net"/></svg></span><div><h2>How the network works</h2><div class="sub">Records stay where they were created</div></div></div>
+              <ol class="how-list">
+                <li><span class="num">1</span><div><b>Find</b><p>The address book shows where records are: institution, date, category. Never the content.</p></div></li>
+                <li><span class="num">2</span><div><b>Ask the patient</b><p>Monika approves on her phone with the EU Digital Identity Wallet.</p></div></li>
+                <li><span class="num">3</span><div><b>Receive</b><p>Each source releases the documents automatically, end-to-end encrypted.</p></div></li>
+              </ol>
+              <div class="trust"><span class="chip acc"><svg class="i"><use href="#i-lock"/></svg>End-to-end encrypted</span><span class="chip acc"><svg class="i"><use href="#i-user"/></svg>Patient-approved</span><span class="chip acc"><svg class="i"><use href="#i-shield"/></svg>Need-to-know</span></div>
+            </div>
+          </div>
+
+          <!-- steps 1-2 -->
+          <div class="view" data-s="1-2">
+            <div class="card" data-doc="emergency">
+              <div class="card-h"><span class="ic info"><svg class="i"><use href="#i-star"/></svg></span><div><h2>Emergency tier</h2><div class="sub">Always visible to a treating hospital</div></div></div>
+              <div class="em-grid">
+                <div class="em-item"><svg class="i"><use href="#i-allergy"/></svg><div><small>Allergy</small><b>Penicillin allergy</b></div></div>
+                <div class="em-item"><svg class="i"><use href="#i-drop"/></svg><div><small>Blood type</small><b>A Rh+</b></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-send"/></svg></span><div><h2>Request documents</h2><div class="sub">Pick only what this treatment needs</div></div></div>
+              <div class="checks">
+                <label class="ck"><input type="checkbox" checked><span class="box"><svg class="i"><use href="#i-check"/></svg></span><span class="tag t-img">Imaging</span><span class="rt">Right knee MRI</span></label>
+                <label class="ck"><input type="checkbox" checked><span class="box"><svg class="i"><use href="#i-check"/></svg></span><span class="tag t-lab">Lab results</span><span class="rt">Coagulation panel</span></label>
+                <label class="ck"><input type="checkbox" checked><span class="box"><svg class="i"><use href="#i-check"/></svg></span><span class="tag t-med">Medication list</span><span class="rt">Current medication</span></label>
+                <label class="ck"><input type="checkbox" checked><span class="box"><svg class="i"><use href="#i-check"/></svg></span><span class="tag t-dis">Discharge report</span><span class="rt">Inpatient stay 2023</span></label>
+              </div>
+              <div class="reason-wrap">
+                <label class="fl" for="reason">Reason, shown to the patient</label>
+                <input class="inp" id="reason" type="text" value="Lower-leg fracture, surgery planned">
+              </div>
+              <div class="valid"><svg class="i"><use href="#i-cal"/></svg>Valid for this treatment only</div>
+              <div class="stack">
+                <div class="view" data-s="1"><button class="btn primary full" id="btn-req"><svg class="i"><use href="#i-user"/></svg>Request with patient approval</button></div>
+                <div class="view" data-s="2"><div class="pending"><span class="spin"></span><div><b>Waiting for Monika's approval</b><small>Sent to her EU Digital Identity Wallet</small></div></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- steps 3-5 -->
+          <div class="view" data-s="3-5">
+            <div class="card em-c" data-doc="emergency"><span class="ic info"><svg class="i"><use href="#i-star"/></svg></span><div><small>Emergency tier</small><b>Penicillin allergy · Blood type A Rh+</b></div></div>
+            <div class="card">
+              <div class="prog" data-s="4"></div>
+              <div class="card-h"><span class="ic ai"><svg class="i"><use href="#i-spark"/></svg></span><div><h2>Pre-op summary</h2><div class="sub">certified medical AI via MCP (demo)</div></div></div>
+              <div class="stack">
+                <div class="view ai-cta" data-s="3">
+                  <p>Summarises the received documents for surgery. Every line links back to its source.</p>
+                  <button class="btn primary full" id="btn-ai"><svg class="i"><use href="#i-spark"/></svg>Summarise for pre-op</button>
+                  <div class="ph-lines" aria-hidden="true"><i style="width:88%"></i><i style="width:64%"></i><i style="width:76%"></i><i style="width:52%"></i><i style="width:70%"></i></div>
+                </div>
+                <div class="view" data-s="4-5">
+                  <ul class="ai-lines">
+                    <li class="rv" data-s="4-5" style="--d:.35s"><span class="dot"></span><div><div class="txt">INR 1.0 on 22 Oct 2026, no anticoagulant on the medication list</div><div class="evs"><button class="ev" data-ev="lab"><svg class="i"><use href="#i-link"/></svg>Lab</button><button class="ev" data-ev="med"><svg class="i"><use href="#i-link"/></svg>Medication list</button></div></div></li>
+                    <li class="rv" data-s="4-5" style="--d:.55s"><span class="dot"></span><div><div class="txt">Penicillin allergy</div><div class="evs"><button class="ev" data-ev="emergency"><svg class="i"><use href="#i-link"/></svg>Emergency tier</button></div></div></li>
+                    <li class="rv" data-s="4-5" style="--d:.75s"><span class="dot"></span><div><div class="txt">Right-knee MRI 2024: old meniscus tear, no surgery</div><div class="evs"><button class="ev" data-ev="mri"><svg class="i"><use href="#i-link"/></svg>MRI</button></div></div></li>
+                    <li class="rv" data-s="4-5" style="--d:.95s"><span class="dot"></span><div><div class="txt">Discharge 2023: uncomplicated appendectomy</div><div class="evs"><button class="ev" data-ev="dis"><svg class="i"><use href="#i-link"/></svg>Discharge report</button></div></div></li>
+                    <li class="rv" data-s="4-5" style="--d:1.15s"><span class="dot"></span><div><div class="txt">Sources in Hungarian and German · summary in English</div><div class="evs"><button class="ev" data-ev="mri lab med dis"><svg class="i"><use href="#i-link"/></svg>4 sources</button></div></div></li>
+                  </ul>
+                  <p class="disc rv" data-s="4-5" style="--d:1.35s"><svg class="i"><use href="#i-info"/></svg>Decision support only; the doctor decides.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- step 6 -->
+          <div class="view map-v" data-s="6">
+            <div class="card">
+              <div class="card-h"><span class="ic acc"><svg class="i"><use href="#i-pin"/></svg></span><div><h2>Where Monika's records live</h2><div class="sub">Grows with every document · <b id="loc-count">5 locations</b></div></div></div>
+              <div class="map">
+                <span class="ctry" style="left:24%;top:88%">AUSTRIA</span>
+                <span class="ctry" style="left:85%;top:64%">HUNGARY</span>
+                <svg class="links" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <line x1="11" y1="49" x2="55" y2="19"/><line x1="11" y1="49" x2="66" y2="36"/><line x1="11" y1="49" x2="78.5" y2="42"/><line x1="11" y1="49" x2="88" y2="82"/>
+                  <line class="new" x1="11" y1="49" x2="47" y2="58"/>
+                </svg>
+                <div class="node me" style="left:11%;top:49%"><i></i><span class="lbl tr">Unfallklinik Alpenblick<small>this treatment</small></span></div>
+                <div class="node" style="left:55%;top:19%"><i></i><span class="lbl r">Labor Wien Mitte</span></div>
+                <div class="node" style="left:66%;top:36%"><i></i><span class="lbl r">GP Dr. Szabó · Győr</span></div>
+                <div class="node" style="left:78.5%;top:42%"><i></i><span class="lbl b">Rendelő Budapest</span></div>
+                <div class="node" style="left:88%;top:82%"><i></i><span class="lbl l">Szeged hospital</span></div>
+                <div class="node new" style="left:47%;top:58%"><i></i><span class="lbl b">Ordination Dr. Huber · Graz<small>New · from a paper letter</small></span></div>
+              </div>
+              <div class="legend"><span><i style="background:var(--accent)"></i>Secure box in the network</span><span><i style="background:var(--ok)"></i>Found via letterhead</span></div>
+              <p class="caption"><svg class="i"><use href="#i-info"/></svg>The letterhead tells the network where to ask next time.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= patient phone ================= -->
+  <section class="phone-pane" aria-label="Patient phone">
+    <div class="ph-label"><span class="avatar">MK</span><div><b>Monika's phone</b><small>Patient · owner of her data</small></div></div>
+    <div class="phone">
+      <div class="screen">
+        <div class="island"></div>
+        <div class="sbar"><span id="ptime">14:10</span>
+          <svg viewBox="0 0 64 14"><rect x="0" y="9" width="3" height="5" rx="1"/><rect x="5" y="6" width="3" height="8" rx="1"/><rect x="10" y="3" width="3" height="11" rx="1"/><rect x="15" y="0" width="3" height="14" rx="1"/><path d="M29 4.2a10 10 0 0 1 13 0l-1.6 1.7a7.6 7.6 0 0 0-9.8 0zM31.6 7a6.3 6.3 0 0 1 7.8 0l-1.7 1.8a3.9 3.9 0 0 0-4.4 0zM35.5 13.5l-2-2.1a2.6 2.6 0 0 1 4 0z"/><rect x="45.5" y=".8" width="16" height="12.4" rx="3.4" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".5"/><rect x="47.4" y="2.7" width="10.5" height="8.6" rx="2"/><rect x="62.4" y="4.8" width="1.6" height="4.4" rx=".8" opacity=".5"/></svg>
+        </div>
+
+        <!-- lock screen (steps 0-2) -->
+        <div class="pv lock" data-s="0-2">
+          <div class="lk">
+            <div class="lk-date">Friday, 30 October</div>
+            <div class="lk-time" id="lktime">14:10</div>
+            <div class="widget"><span class="w-ic"><svg class="i"><use href="#i-wallet"/></svg></span><div><b>EU Digital Identity Wallet</b><small>Ready · ID verified</small></div></div>
+            <div class="widget"><span class="mark sm"><svg><use href="#dove"/></svg></span><div><b>Brieftaube</b><small>No pending requests</small></div></div>
+          </div>
+        </div>
+
+        <!-- shared confirmation (steps 3-4) -->
+        <div class="pv app" data-s="3-4">
+          <div class="app-h"><span class="mark sm"><svg><use href="#dove"/></svg></span><b>Brieftaube</b></div>
+          <div class="hero"><div class="big-ok"><svg class="i"><use href="#i-check"/></svg></div><h3>Shared with<br>Unfallklinik Alpenblick</h3><p>Approved 14:12 · EU Digital Identity Wallet</p></div>
+          <div class="pcard"><div class="pc-h">Shared for this treatment</div>
+            <ul class="plist"><li><svg class="i"><use href="#i-check"/></svg>Imaging</li><li><svg class="i"><use href="#i-check"/></svg>Lab results</li><li><svg class="i"><use href="#i-check"/></svg>Medication list</li><li><svg class="i"><use href="#i-check"/></svg>Discharge report</li></ul>
+          </div>
+          <div class="pcard pc-row"><svg class="i"><use href="#i-cal"/></svg><div><b>Valid for this treatment</b><small>Ends automatically at discharge</small></div></div>
+          <span class="p-grow"></span>
+          <button class="pbtn pri" id="btn-log"><svg class="i"><use href="#i-user"/></svg>See who saw my data</button>
+          <button class="pbtn txt">Revoke access</button>
+        </div>
+
+        <!-- my data (steps 5-6) -->
+        <div class="pv app" data-s="5-6">
+          <div class="app-h"><b class="ttl">My data</b><span class="grow"></span><span class="avatar">MK</span></div>
+          <div class="psec">Who saw my data</div>
+          <ul class="log">
+            <li class="new"><span class="dot" style="background:var(--ok)"></span><div class="txt"><b>Unfallklinik Alpenblick</b><small>Dr. Jakob Rainer · Imaging, Lab, Medication, Discharge</small><span class="chip ok xs">Approved by you</span></div><time>14:12</time></li>
+            <li><span class="dot" style="background:var(--info)"></span><div class="txt"><b>Unfallklinik Alpenblick</b><small>Emergency tier · allergy, blood type</small><span class="chip info xs">Emergency access</span></div><time>14:05</time></li>
+            <li><span class="dot" style="background:var(--accent)"></span><div class="txt"><b>GP Dr. Szabó, Győr</b><small>Medication list</small><span class="chip acc xs">Your rule</span></div><time>3 Oct</time></li>
+          </ul>
+          <div class="psec">My sharing rules</div>
+          <ul class="rules">
+            <li><span class="ric"><svg class="i"><use href="#i-user"/></svg></span><div class="txt"><b>My GP</b><small>Everything, always</small></div><span class="chip ok xs">Always</span></li>
+            <li><span class="ric"><svg class="i"><use href="#i-chat"/></svg></span><div class="txt"><b>Psychiatry</b><small>Always ask me</small></div><span class="chip warn xs">Ask me</span></li>
+            <li><span class="ric"><svg class="i"><use href="#i-star"/></svg></span><div class="txt"><b>Emergency</b><small>Allergies + blood type only</small></div><span class="chip info xs">Limited</span></li>
+          </ul>
+          <div class="dnb"><div class="txt" style="flex:1"><b>Don't bother me</b><small>Auto-approve doctors who are treating me (revocable)</small></div><button class="switch" id="sw" role="switch" aria-checked="false" aria-label="Don't bother me"></button></div>
+        </div>
+
+        <!-- step 2 overlays -->
+        <div class="notif" data-s="2">
+          <span class="mark"><svg><use href="#dove"/></svg></span>
+          <div style="flex:1;min-width:0"><div class="n-app"><span>Brieftaube</span><span>now</span></div><b>Access request</b><p>Unfallklinik Alpenblick asks for 4 categories</p></div>
+        </div>
+        <div class="sheet" data-s="2">
+          <div class="grab"></div>
+          <div class="s-h"><span class="hosp"><svg class="i"><use href="#i-hosp"/></svg></span><div><b>Unfallklinik Alpenblick</b><small>Dr. Jakob Rainer · Trauma surgery</small></div></div>
+          <div class="s-row"><div class="s-lbl">asks for</div>
+            <div class="s-chips"><span class="tag t-img">Imaging</span><span class="tag t-lab">Lab results</span><span class="tag t-med">Medication list</span><span class="tag t-dis">Discharge report</span></div></div>
+          <div class="s-row"><div class="s-lbl">Why</div><div class="s-txt" id="why">Lower-leg fracture, surgery planned.</div></div>
+          <div class="s-valid"><svg class="i"><use href="#i-cal"/></svg>Valid for this treatment.</div>
+          <button class="pbtn pri" id="btn-approve"><svg class="i"><use href="#i-wallet"/></svg>Approve with EU Digital Identity Wallet</button>
+          <button class="pbtn sec" id="btn-always">Always allow for this treatment</button>
+          <button class="pbtn txt" id="btn-decline">Decline</button>
+          <div class="decl" id="decl">Declining is always possible. The clinic only sees "declined".</div>
+        </div>
+        <div class="toast" data-s="6"><span class="mark sm"><svg><use href="#dove"/></svg></span><div><b>New record location</b><small>Ordination Dr. Huber, Graz · from a scanned letter</small></div></div>
+
+        <!-- wallet confirmation -->
+        <div class="wallet" id="wallet">
+          <div class="w-card">
+            <div class="w-top"><svg class="i"><use href="#i-wallet"/></svg>EU Digital Identity Wallet</div>
+            <h4 id="w-title">Approve sharing</h4>
+            <p>with Unfallklinik Alpenblick</p>
+            <div class="w-vis">
+              <svg class="face" viewBox="0 0 64 64"><path d="M6 20V12a6 6 0 0 1 6-6h8M44 6h8a6 6 0 0 1 6 6v8M58 44v8a6 6 0 0 1-6 6h-8M20 58h-8a6 6 0 0 1-6-6v-8"/><path d="M23 24v5M41 24v5M32 26v10l-3 1.5M24 44c4.5 4 11.5 4 16 0"/></svg>
+              <svg class="okc" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28"/><path d="M20 33l8 8 16-17"/></svg>
+            </div>
+            <div class="w-state" id="w-state">Confirm with biometrics</div>
+          </div>
+        </div>
+        <div class="homebar"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="hint" id="hint">Presenter: <kbd>→</kbd> or <kbd>Space</kbd> next · <kbd>←</kbd> back · <kbd>R</kbd> reset</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const LABELS = ['Admission', 'Find records', 'Patient consent', 'Secure delivery', 'AI summary', 'Patient control', 'Paper intake'];
+  const FOCUS = ['doctor', 'doctor', 'phone', 'doctor', 'doctor', 'phone', 'doctor'];
+  const TIME = ['14:10', '14:10', '14:12', '14:12', '14:13', '14:15', '14:16'];
+  const TAB = [0, 1, 1, 1, 1, 1, 2];
+  const LAST = LABELS.length - 1;
+  let step = 0, tok = 0, busy = false, timers = [];
+
+  // step indicator
+  const nav = $('#steps');
+  LABELS.forEach((l, i) => {
+    if (i) { const s = document.createElement('span'); s.className = 'sep'; nav.appendChild(s); }
+    const b = document.createElement('button');
+    b.className = 'st'; b.type = 'button'; b.title = l;
+    b.innerHTML = `<span class="n">${i + 1}</span><span class="stl">${l}</span>`;
+    b.addEventListener('click', () => go(i));
+    nav.appendChild(b);
+  });
+
+  function later(fn, ms) { const my = tok; timers.push(setTimeout(() => { if (my === tok) fn(); }, ms)); }
+  function range(s) {
+    if (s.endsWith('+')) return [+s.slice(0, -1), 99];
+    const [a, b] = s.split('-');
+    return [+a, b === undefined ? +a : +b];
+  }
+
+  function go(n) {
+    n = Math.max(0, Math.min(LAST, n));
+    const prev = step;
+    step = n; tok++; busy = false;
+    timers.forEach(clearTimeout); timers = [];
+    document.body.dataset.step = n;
+    document.body.dataset.focus = FOCUS[n];
+    $$('[data-s]').forEach(el => { const [a, b] = range(el.dataset.s); el.classList.toggle('on', n >= a && n <= b); });
+    $$('.st').forEach((el, i) => { el.classList.toggle('cur', i === n); el.classList.toggle('done', i < n); });
+    $$('.sep').forEach((el, i) => el.classList.toggle('done', i < n));
+    $$('.tab').forEach((el, i) => el.classList.toggle('on', i === TAB[n]));
+    $('#ptime').textContent = TIME[n];
+    $('#lktime').textContent = TIME[n];
+    $('#wallet').className = 'wallet';
+    $('#decl').classList.remove('show');
+    if (n === 2) {
+      const r = $('#reason').value.trim().replace(/\.$/, '') || 'Lower-leg fracture, surgery planned';
+      $('#why').textContent = r + '.';
+    }
+    $('#loc-count').textContent = '5 locations';
+    if (n === 6) later(() => { $('#loc-count').textContent = '6 locations'; }, 2300);
+    docs(n, prev);
+    clearHl();
+  }
+
+  function docs(n, prev) {
+    const rows = $$('.doc'), cap = $('#key-cap'), cnt = $('#recv');
+    const done = () => { cnt.textContent = '4 of 4 received · end-to-end encrypted'; cap.classList.add('on'); };
+    if (n < 3) { rows.forEach(r => r.classList.remove('pending', 'arrived')); cap.classList.remove('on'); return; }
+    if (n === 3 && prev < 3) {
+      rows.forEach(r => r.classList.remove('pending', 'arrived'));
+      cap.classList.remove('on');
+      cnt.textContent = 'Receiving from 4 secure boxes…';
+      rows.forEach((r, i) => {
+        const t = 450 + i * 520;
+        later(() => r.classList.add('pending'), t);
+        later(() => { r.classList.remove('pending'); r.classList.add('arrived'); cnt.textContent = `${i + 1} of 4 received · end-to-end encrypted`; }, t + 850);
+      });
+      later(done, 450 + 3 * 520 + 1150);
+      return;
+    }
+    rows.forEach(r => { r.classList.remove('pending'); r.classList.add('arrived'); });
+    done();
+  }
+
+  function approve(always) {
+    if (step !== 2 || busy) return;
+    busy = true;
+    const w = $('#wallet');
+    $('#w-title').textContent = always ? 'Always allow for this treatment' : 'Approve sharing';
+    $('#w-state').textContent = 'Confirm with biometrics';
+    w.className = 'wallet show scan';
+    later(() => { w.className = 'wallet show done'; $('#w-state').textContent = 'Approved'; }, 1100);
+    later(() => go(3), 1900);
+  }
+
+  function next() { if (busy || step === LAST) return; if (step === 2) approve(false); else go(step + 1); }
+  function prev() { go(step - 1); }
+  function reset() {
+    $('#sw').setAttribute('aria-checked', 'false');
+    $$('.checks input').forEach(c => { c.checked = true; });
+    $('#reason').value = 'Lower-leg fracture, surgery planned';
+    go(0);
+  }
+
+  // evidence chips: hover or click highlights the source
+  function hl(keys, on) { keys.forEach(k => $$(`[data-doc="${k}"]`).forEach(el => el.classList.toggle('hl', on))); }
+  function clearHl() { $$('.ev.act').forEach(b => b.classList.remove('act')); $$('.hl').forEach(el => el.classList.remove('hl')); }
+  $$('.ev').forEach(b => {
+    const keys = b.dataset.ev.split(' ');
+    b.addEventListener('mouseenter', () => hl(keys, true));
+    b.addEventListener('mouseleave', () => { if (!b.classList.contains('act')) { hl(keys, false); $$('.ev.act').forEach(a => hl(a.dataset.ev.split(' '), true)); } });
+    b.addEventListener('click', () => { const on = !b.classList.contains('act'); clearHl(); if (on) { b.classList.add('act'); hl(keys, true); } });
+  });
+
+  // real UI controls
+  $('#btn-find').addEventListener('click', () => go(1));
+  $('#btn-req').addEventListener('click', () => go(2));
+  $('#btn-approve').addEventListener('click', () => approve(false));
+  $('#btn-always').addEventListener('click', () => approve(true));
+  $('#btn-decline').addEventListener('click', () => { $('#decl').classList.add('show'); later(() => $('#decl').classList.remove('show'), 2600); });
+  $('#btn-ai').addEventListener('click', () => go(4));
+  $('#btn-log').addEventListener('click', () => go(5));
+  $('#tab-paper').addEventListener('click', () => go(6));
+  $('#sw').addEventListener('click', e => { const s = e.currentTarget; s.setAttribute('aria-checked', s.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); });
+
+  // presenter mode
+  const typing = t => t && t.matches && t.matches('input[type=text], textarea');
+  const hint = $('#hint');
+  const hideHint = () => hint.classList.add('gone');
+  setTimeout(hideHint, 7000);
+  addEventListener('keydown', e => {
+    if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (k === 'ArrowRight' || k === ' ' || k === 'PageDown') { e.preventDefault(); hideHint(); if (document.activeElement) document.activeElement.blur(); next(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); hideHint(); prev(); }
+    else if (k === 'r' || k === 'R') { hideHint(); reset(); }
+  });
+  addEventListener('keyup', e => { if (e.key === ' ' && !typing(e.target)) e.preventDefault(); });
+
+  window.__go = go;
+  window.__approve = approve;
+  window.__step = () => step;
+  requestAnimationFrame(() => go(0));
+})();
+</script>
+</body>
+</html>
