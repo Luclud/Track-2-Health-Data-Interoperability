@@ -90,16 +90,14 @@ Owns: `tests/**`, `scripts/metrics.ts`, `scripts/validate-fhir.ts`, `.github/wor
 
 - [x] **V2-TEST-1 (P0, first) New fixtures.** In `tests/fixtures/documents/` with `*.expected.json`: (a) `lab-critical-platelets-inr.md` standard format, platelets 38 and INR 5.2 for Maria; (b) `lab-prose-letter-de.md` German prose letter ("Die Thrombozyten lagen bei 245 G/l …", decimal commas, German date) — LLM path; (c) `lab-bullet-list-de.md` values as a bullet list with German names — LLM path; (d) `rehab-other-headings.md` rehab report from another clinic with different headings. Same synthetic patient data as the scenario.
 - [x] **V2-TEST-2 (P0) e2e for v2.** Extend `tests/e2e/` (keep all v1 tests): critical fixture → 🚨 message before ✅ and `critical` in summary; held review has evidence for every value (mock LLM in e2e); jury mode returns `juryLink`, default mode doesn't; demo buttons only in jury mode; receipt hash correct; reminder with `REMINDER_BEFORE_EXPIRY_MINUTES` large and `SCHEDULER_INTERVAL_SECONDS=1` → new link works, old link doesn't, SMS/email pass the privacy guard. UI e2e: QR modal visible in jury mode; lab table shows `1,0` and `10⁹/L`.
-- [ ] **V2-TEST-3 (P1) Metrics.** `npm run metrics` on `v2-addons` still reports the four challenge metrics (six audit steps by name, `reminder-sent` not counted), plus a short "KI-Auswertung" line linking `docs/AI-EVAL.md`. Regenerate `docs/METRICS.md`.
-- [ ] **V2-TEST-2 (P0) e2e for v2.** Extend `tests/e2e/` (keep all v1 tests): critical fixture → 🚨 message before ✅ and `critical` in summary; held review has evidence for every value (mock LLM in e2e); jury mode returns `juryLink`, default mode doesn't; demo buttons only in jury mode; receipt hash correct; reminder with `REMINDER_BEFORE_EXPIRY_MINUTES` large and `SCHEDULER_INTERVAL_SECONDS=1` → new link works, old link doesn't, SMS/email pass the privacy guard. UI e2e: QR modal visible in jury mode; lab table shows `1,0` and `10⁹/L`.
 - [x] **V2-TEST-3 (P1) Metrics.** `npm run metrics` on `v2-addons` still reports the four challenge metrics (six audit steps by name, `reminder-sent` not counted), plus a short "KI-Auswertung" line linking `docs/AI-EVAL.md`. Regenerate `docs/METRICS.md`.
 
 ---
 
 ## Final integration — coordinator, from 09:45
 
-- [ ] **V2-INT-1** On `v2-addons`: full stack, seed, `npm run e2e` + `npm run e2e:ui` green (v1 + v2 tests), both Element and standalone paths.
-- [ ] **V2-INT-2** `npm run ai:eval` (real model if a key is available, else mock) and `npm run metrics`.
-- [ ] **V2-INT-3** Try `scripts/jury.sh` (tunnel) and `scripts/jury.sh --lan`; note what worked.
-- [ ] **V2-INT-4** README: section "Neu in v2 / New in v2" (what, why, how to run jury mode), update "What works and what doesn't" honestly. `docs/V2-REPORT.md`: what works (exact commands), what doesn't, known issues, metric + AI-eval results, open PRs.
+- [x] **V2-INT-1** On `v2-addons`: full stack, seed, `npm run e2e` + `npm run e2e:ui` green (v1 + v2 tests), both Element and standalone paths.
+- [x] **V2-INT-2** `npm run ai:eval` (real model if a key is available, else mock) and `npm run metrics`.
+- [x] **V2-INT-3** Try `scripts/jury.sh` (tunnel) and `scripts/jury.sh --lan`; note what worked.
+- [x] **V2-INT-4** README: section "Neu in v2 / New in v2" (what, why, how to run jury mode), update "What works and what doesn't" honestly. `docs/V2-REPORT.md`: what works (exact commands), what doesn't, known issues, metric + AI-eval results, open PRs.
 - [ ] **V2-INT-5** Open (do **not** merge) a PR `v2-addons → main` titled `v2 add-ons (review before merge)` with the report as description. A human decides in the morning.

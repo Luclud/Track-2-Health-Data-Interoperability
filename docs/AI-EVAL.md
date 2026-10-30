@@ -4,7 +4,7 @@
 
 - Anbieter: mock
 - Modell: Erwartungswerte aus den Fixtures
-- Datum: 30. Oktober 2026 um 06:13
+- Datum: 30. Oktober 2026 um 06:34
 - Weg: nur KI (deterministischer Parser übersprungen), danach Verifikation gegen den Originaltext
 - Dokumente: 17
 
