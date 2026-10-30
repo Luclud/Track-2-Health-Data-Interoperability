@@ -120,7 +120,7 @@ export class CoreRequestService implements Partial<RequestService> {
       details: { channel: request.recipient.channel, providerMessageId: sent.providerMessageId, warnings: warnings.length },
     });
     await this.post({ roomId: request.roomId, body: chatRequestSent(request), severity: "info" });
-    return { request, warnings };
+    return { request, warnings, link: linkFor(this.d.config.publicBaseUrl, token) };
   }
 
   async listForRoom(roomId: string): Promise<DocumentRequest[]> {

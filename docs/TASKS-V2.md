@@ -17,7 +17,7 @@ Time plan (Europe/Vienna): start ~06:00 · all P0 merged by ~08:30 · P1 by ~09:
 
 ## V2-BOOT — Coordinator, before the lanes start (≤ 30 min)
 
-- [ ] **V2-BOOT-1 Contracts + CI.** One PR titled `contract: v2`, merged into `v2-addons` before any lane starts (Dev UI may start V2-JURY-3 in parallel, it needs no contract).
+- [x] **V2-BOOT-1 Contracts + CI.** One PR titled `contract: v2`, merged into `v2-addons` before any lane starts (Dev UI may start V2-JURY-3 in parallel, it needs no contract).
   - CI already runs on `push` to `v2-addons` (done in the planning commit) — nothing to do.
   - `packages/shared/src/format.ts` (+ unit tests, export from the package index). Pure functions used by core and UI:
     - `formatValueDe(value, refLow?, refHigh?)` → German decimal comma; decimals = max(decimals of value, low, high) as written in numbers (INR 1 with range 0.8–1.2 → `"1,0"`, fibrinogen 3.1 → `"3,1"`, platelets 245 → `"245"`).

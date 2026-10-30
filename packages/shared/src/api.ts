@@ -11,6 +11,7 @@ import type {
   Channel,
   DocumentRequest,
   DocumentType,
+  HeldReason,
   MisdeliveryKind,
   PatientSnapshot,
   RequestStatus,
@@ -38,6 +39,8 @@ export interface CreateRequestBody {
 export interface CreateRequestResponse {
   request: DocumentRequestView;
   warnings: RecipientWarning[];
+  /** The recipient's link. Set ONLY when JURY_MODE=true (live demo: shown as QR code); never otherwise. */
+  juryLink?: string;
 }
 
 /** POST /api/recipient-check  body: { channel, address, displayName } — call before sending */
@@ -69,6 +72,8 @@ export interface DocumentRequestView {
   filedResources: string[];
   heldReason?: DocumentRequest["heldReason"];
   lastProblem?: MisdeliveryKind;
+  /** When the reminder (with a new link) was sent, if any */
+  reminderSentAt?: string;
 }
 
 export interface RequestDetailResponse {
@@ -77,12 +82,42 @@ export interface RequestDetailResponse {
   audit: AuditEntry[];
   /** Short human summary of what was filed, for display (e.g. lab values table) */
   summary?: FiledSummary;
+  /** Only while status is "held": what was read, with evidence lines in the received document */
+  review?: HeldReview;
+}
+
+/** 1-based line in HeldReview.sourceText that contains the value */
+export interface Evidence {
+  line: number;
+  text: string;
+}
+
+export interface HeldReview {
+  method: "deterministic" | "llm";
+  reason: HeldReason;
+  patient: { given: string[]; family: string; birthDate?: string; evidence?: Evidence };
+  /** lab result */
+  values?: { testName: string; loinc?: string; value: number; unit: string; low?: number; high?: number; evidence: Evidence }[];
+  /** rehab discharge report */
+  excerpt?: string;
+  /** The received document, as received */
+  sourceText: string;
 }
 
 export type FiledSummary =
   | {
       kind: "lab-result";
-      values: { testName: string; value: number; unit: string; low?: number; high?: number; interpretation: "N" | "H" | "L" }[];
+      values: {
+        testName: string;
+        loinc?: string;
+        value: number;
+        unit: string;
+        low?: number;
+        high?: number;
+        interpretation: "N" | "H" | "L";
+        /** Set when the value crosses a critical (panic) limit, e.g. { rule: "< 50" } */
+        critical?: { rule: string };
+      }[];
       conclusion?: string;
     }
   | { kind: "rehab-discharge-report"; title: string; stay?: { start: string; end: string }; excerpt: string };
@@ -94,6 +129,12 @@ export interface HeldDecisionResponse {
 
 /** GET /api/patients?q=Beispiel -> PatientSnapshot[] */
 export type PatientSearchResponse = PatientSnapshot[];
+
+/** GET /api/ui-config (no auth) -> feature switches for the doctor UI */
+export interface UiConfigResponse {
+  juryMode: boolean;
+  llmEnabled: boolean;
+}
 
 /** GET /api/me -> who the core thinks the doctor is */
 export interface MeResponse {

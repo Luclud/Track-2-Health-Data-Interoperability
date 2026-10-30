@@ -77,6 +77,8 @@ export interface DocumentRequest {
   heldReason?: HeldReason;
   /** Last misdelivery / rejection reason, if any */
   lastProblem?: MisdeliveryKind;
+  /** When the reminder (with a rotated link token) was sent, if any */
+  reminderSentAt?: string;
 }
 
 export type HeldReason =

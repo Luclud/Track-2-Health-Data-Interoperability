@@ -147,7 +147,8 @@ export interface RequestMeta {
 
 export interface RequestService {
   checkRecipient(requester: Requester, body: { channel: "email" | "sms"; address: string; displayName: string }): Promise<RecipientWarning[]>;
-  createRequest(requester: Requester, body: CreateRequestBody): Promise<{ request: DocumentRequest; warnings: RecipientWarning[] }>;
+  /** `link` is the recipient's link; the API returns it to the UI only in JURY_MODE. */
+  createRequest(requester: Requester, body: CreateRequestBody): Promise<{ request: DocumentRequest; warnings: RecipientWarning[]; link?: string }>;
   listForRoom(roomId: string): Promise<DocumentRequest[]>;
   detail(id: string): Promise<RequestDetailResponse | undefined>;
 
