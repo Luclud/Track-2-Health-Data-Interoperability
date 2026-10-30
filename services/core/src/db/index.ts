@@ -15,6 +15,8 @@ const OPEN_STATUSES: ReadonlySet<RequestStatus> = new Set(["sent", "opened", "id
 export interface HeldAnswer {
   document: ParsedDocument;
   context: Omit<FilingContext, "request" | "newUuid">;
+  /** How the document was read (v2; older rows: derived from the held reason) */
+  method?: "deterministic" | "llm";
 }
 
 export interface HeldAnswerStore {
