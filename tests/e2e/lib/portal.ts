@@ -5,7 +5,8 @@ import { Browser, type Page } from "./browser.ts";
 
 export type Person =
   | { persona: "eva-brandl" | "stefan-kern" | "thomas-gruber" | "ines-fremd" }
-  | { given: string; family: string; birthDate: string };
+  /** "Andere Person" at the mock eID; addToRegister "1" also lists the person in the simulated physician register. */
+  | { given: string; family: string; birthDate: string; addToRegister?: "1" };
 
 export class OutsidePerson {
   readonly browser = new Browser();

@@ -5,6 +5,7 @@ import type {
   ChatMessageView,
   CreateRequestBody,
   CreateRequestResponse,
+  HeldDecisionResponse,
   RecipientCheckResponse,
   RequestDetailResponse,
   SmsView,
@@ -66,6 +67,7 @@ export const coreApi = {
   detail: (id: string) => api<RequestDetailResponse>("GET", `/api/requests/${encodeURIComponent(id)}`),
   chat: (roomId: string) => api<ChatMessageView[]>("GET", `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`),
   sms: () => api<SmsView[]>("GET", "/api/dev/sms"),
+  release: (id: string) => api<HeldDecisionResponse>("POST", `/api/requests/${encodeURIComponent(id)}/release`),
 };
 
 export function labRequest(address: string, note = "Bitte die aktuellen Gerinnungswerte vor dem geplanten Eingriff."): CreateRequestBody {
