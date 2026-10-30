@@ -10,10 +10,12 @@ import type {
   RecipientCheckBody,
   RecipientCheckResponse,
   RequestDetailResponse,
+  UiConfigResponse,
 } from "@brieftaube/shared";
 
 /** Everything the doctor UI needs from the core (packages/shared/src/api.ts). */
 export interface Api {
+  uiConfig(): Promise<UiConfigResponse>;
   me(): Promise<MeResponse>;
   patients(q: string): Promise<PatientSnapshot[]>;
   recipientCheck(body: RecipientCheckBody): Promise<RecipientCheckResponse>;
@@ -61,6 +63,9 @@ export class HttpApi implements Api {
     return data as T;
   }
 
+  uiConfig() {
+    return this.call<UiConfigResponse>("GET", "/api/ui-config");
+  }
   me() {
     return this.call<MeResponse>("GET", "/api/me");
   }
