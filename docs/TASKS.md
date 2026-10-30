@@ -35,7 +35,7 @@ Owns: `services/core/src/{domain,parser,fhir,llm,audit,api,db}/**`
   - Tests: M3 with `lab-result-max-beispiel.md` (form says Max, and also form says Maria but document is Max) → rejected, nothing sent to FHIR store fake.
 - [x] **CORE-6 (P0) HAPI client.** `fhir/store.ts` with fetch, `application/fhir+json`, errors include OperationOutcome text. Transaction returns response bundle; map `urn:uuid` → created ids for `filedResources`.
 - [x] **CORE-7 (P0) Audit log.** `audit/`: SQLite table + append `DATA_DIR/audit.jsonl` + FHIR AuditEvent via builder (best effort, errors logged not thrown).
-- [ ] **CORE-8 (P0) REST API.** `api/routes.ts` exactly per `packages/shared/src/api.ts`; auth middleware for `AUTH_MODE=dev|matrix` (OpenID userinfo at Synapse; allowed users = `*:klinikum.example`; requester profile from Matrix display name + Practitioner lookup by identifier, fallback to seed values).
+- [x] **CORE-8 (P0) REST API.** `api/routes.ts` exactly per `packages/shared/src/api.ts`; auth middleware for `AUTH_MODE=dev|matrix` (OpenID userinfo at Synapse; allowed users = `*:klinikum.example`; requester profile from Matrix display name + Practitioner lookup by identifier, fallback to seed values).
   - Tests: Fastify `inject` tests for every endpoint with fakes.
 - [ ] **CORE-9 (P1) LLM fallback.** `llm/`: providers `anthropic` (Messages API), `perplexity` and `openai-compatible` (chat completions with `response_format: json_schema`), `mock` (returns fixture JSON), `none`. JSON schema in `llm/schema.ts`. Verification per DESIGN.md §3; verified results → `held` (`ai-extracted`).
   - Tests with `mock`: hallucinated value is rejected; correct extraction becomes `held`.
