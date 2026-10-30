@@ -69,7 +69,7 @@ ${requestCard(v)}
 }
 
 export function unknownLinkPage(): string {
-  return layout("Link ungültig", html`<h1>Dieser Link ist ungültig</h1><p class="notice err">Bitte prüfen Sie, ob Sie den Link vollständig geöffnet haben. Wenden Sie sich sonst an die Person, die Ihnen die Anfrage gesendet hat.</p>`);
+  return layout("Link ungültig", html`<h1>Dieser Link ist ungültig</h1><p class="notice err">Bitte prüfen Sie, ob Sie den Link vollständig geöffnet haben. Wenden Sie sich sonst an die Person, die Ihnen die Anfrage gesendet hat.</p><p>Haben Sie eine Erinnerung erhalten? Dann wurde dieser Link ersetzt – bitte verwenden Sie den Link aus der neuesten Nachricht.</p>`);
 }
 
 export function closedPage(v: PublicRequestView): string {

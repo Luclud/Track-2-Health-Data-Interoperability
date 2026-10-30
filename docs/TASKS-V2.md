@@ -69,7 +69,7 @@ Owns: `services/core/src/{portal,eid,notify,register,scheduler}/**` (except `not
   - Tests: buttons absent by default, present in jury mode; the inserted text parses to the requested patient / the wrong one.
 - [x] **V2-RCPT-1 (P1) Receipt for the sender.** Result pages for filed and held show an "Eingangsbestätigung" box: Referenz, eingegangen am (Vienna time), Absender (verified e-ID name), Prüfsumme SHA-256 of the received document (first 16 hex chars, full value in a `<details>`), and a `Bestätigung drucken / als PDF speichern` button (`window.print()` with a print stylesheet that shows only the receipt). No medical content in the receipt.
   - Tests: hash equals sha256 of the submitted text; button present.
-- [ ] **V2-REM-1 (P1) Reminders and active expiry.** Fill `startScheduler`: every `SCHEDULER_INTERVAL_SECONDS`:
+- [x] **V2-REM-1 (P1) Reminders and active expiry.** Fill `startScheduler`: every `SCHEDULER_INTERVAL_SECONDS`:
   - For requests in `sent | opened | identity-failed` with `now ≥ expiresAt − REMINDER_BEFORE_EXPIRY_MINUTES` and no `reminderSentAt`: **rotate the link token** (new token, new hash, old link now shows the "abgelaufen/ersetzt" page), send a reminder through the same channel with a privacy-clean template (`Erinnerung: … Ref. … gültig bis …`, goes through `assertNotificationIsClean`), set `reminderSentAt`, audit `reminder-sent`, Matrix info `🔔 Erinnerung an <Name> gesendet (<Ref>)`.
   - Due requests become `expired` actively (not only on read) and Matrix gets one `⌛ <Ref> abgelaufen – keine Antwort von <Name>.` message.
   - Needs an `expireIfDue`/`listOpen` hook in the domain: ask Dev Core / the coordinator under "Requests for other lanes" or add a small method in your own module using the repository port.
