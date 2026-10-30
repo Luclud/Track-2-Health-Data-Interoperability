@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Deps } from "../container.ts";
@@ -205,6 +206,42 @@ describe("answer", () => {
     const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc }), jar) });
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("noch kurz geprüft");
+  });
+
+  describe("receipt (V2-RCPT-1)", () => {
+    const receiptOf = (body: string) => body.match(/<section class="receipt"[\s\S]*?<\/section>/)?.[0] ?? "";
+    const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
+
+    it("filed: reference, Vienna time, verified sender, SHA-256 of the uploaded text, print button", async () => {
+      const { jar } = await loginAs("eva-brandl");
+      const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody(maria, { name: "lab.md", content: labDoc }), jar) });
+      const r = receiptOf(res.body);
+      expect(r).toContain("Eingangsbestätigung");
+      expect(r).toContain(makeFakeRequest().view.reference);
+      expect(r).toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2} Uhr/);
+      expect(r).toContain("Brandl");
+      const full = sha(labDoc);
+      expect(r).toContain(`<code>${full.slice(0, 16)}</code>`);
+      expect(r).toMatch(new RegExp(`<details>[\\s\\S]*${full}[\\s\\S]*</details>`));
+      expect(r).toContain('onclick="window.print()"');
+      expect(r).toContain("Bestätigung drucken / als PDF speichern");
+    });
+
+    it("held: hash of pasted text (BOM stripped, as submitted); no medical or patient content", async () => {
+      const { jar } = await loginAs("eva-brandl");
+      svc.nextOutcome = { result: "held", reason: "not-in-register" };
+      const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc }), jar) });
+      const r = receiptOf(res.body);
+      const submitted = (svc.calls.find((c) => c.method === "submitAnswer")!.args[2] as { content: string }).content;
+      expect(r).toContain(sha(submitted).slice(0, 16));
+      for (const word of ["Maria", "1961", "12.03.", "Laborbefund", "Befund", "Rehab", "Hämoglobin", "mg/dl"]) expect(r).not.toContain(word);
+    });
+
+    it("print stylesheet shows only the receipt", async () => {
+      const css = (await app.inject({ url: "/r/static/portal.css" })).body;
+      expect(css).toMatch(/@media print\{.*body \*\{visibility:hidden\}/);
+      expect(css).toContain(".receipt,.receipt *{visibility:visible}");
+    });
   });
 
   it("wrong patient (M3) -> friendly rejection, form again, session kept", async () => {

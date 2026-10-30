@@ -187,7 +187,13 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     }
     sessions.delete(readSigned(req, SESSION_COOKIE));
     reply.clearCookie(SESSION_COOKIE, { path: cookiePath(token) });
-    return sendHtml(reply, V.resultPage(s.view, outcome));
+    const receipt: V.Receipt = {
+      reference: s.view.reference,
+      receivedAt: new Date(now()).toISOString(),
+      senderName: [...(s.identity.name.prefix ?? []), ...s.identity.name.given, s.identity.name.family].join(" "),
+      sha256: createHash("sha256").update(answer.content, "utf8").digest("hex"),
+    };
+    return sendHtml(reply, V.resultPage(s.view, outcome, receipt));
   });
 
   // Encapsulated: only applies to the portal routes above.

@@ -189,13 +189,37 @@ export function validateAnswer(f: AnswerForm, today = new Date()): AnswerErrors 
   return e;
 }
 
-export function resultPage(v: AuthorizedRequestView, outcome: Exclude<AnswerOutcome, { result: "rejected" }>): string {
+/** Receipt for the sender (V2-RCPT-1). No medical content: no patient, no document type, no values. */
+export interface Receipt {
+  reference: string;
+  receivedAt: string; // ISO 8601
+  senderName: string; // verified e-ID name
+  sha256: string; // hex, of the received document text
+}
+
+function receiptBox(r: Receipt) {
+  return html`<section class="receipt" aria-labelledby="receipt-title">
+<h2 id="receipt-title">Eingangsbestätigung</h2>
+<dl>
+<dt>Referenz</dt><dd>${r.reference}</dd>
+<dt>Eingegangen am</dt><dd>${formatDateTime(r.receivedAt)} Uhr</dd>
+<dt>Absender</dt><dd>${r.senderName} <span class="hint">(mit e-ID bestätigt)</span></dd>
+<dt>Prüfsumme (SHA-256)</dt><dd><code>${r.sha256.slice(0, 16)}</code>
+<details><summary>Vollständige Prüfsumme</summary><code class="hash">${r.sha256}</code></details></dd>
+</dl>
+<p class="hint">Mit der Prüfsumme lässt sich später zeigen, dass genau dieses Dokument übermittelt wurde.</p>
+<button class="btn secondary no-print" type="button" onclick="window.print()">Bestätigung drucken / als PDF speichern</button>
+</section>`;
+}
+
+export function resultPage(v: AuthorizedRequestView, outcome: Exclude<AnswerOutcome, { result: "rejected" }>, receipt?: Receipt): string {
   const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const body =
     outcome.result === "filed"
       ? html`<h1>Vielen Dank – gesendet!</h1><p class="notice ok" role="status">Ihr ${label} wurde sicher an ${v.requesterDisplayName} übermittelt und abgelegt.</p>`
       : html`<h1>Vielen Dank – gesendet!</h1><p class="notice" role="status">Ihr ${label} ist bei ${v.requesterDisplayName} angekommen. Er wird noch kurz geprüft, bevor er abgelegt wird. Sie müssen nichts weiter tun.</p>`;
-  return layout("Gesendet", html`${body}<div class="card"><dl><dt>Referenz</dt><dd>${v.reference}</dd></dl></div><p>Sie können dieses Fenster jetzt schließen.</p>`, { view: v, step: 3 });
+  const tail = receipt ? receiptBox(receipt) : html`<div class="card"><dl><dt>Referenz</dt><dd>${v.reference}</dd></dl></div>`;
+  return layout("Gesendet", html`${body}${tail}<p>Sie können dieses Fenster jetzt schließen.</p>`, { view: v, step: 3 });
 }
 
 export function errorPage(): string {
