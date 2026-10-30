@@ -5,6 +5,7 @@ import type { CreateRequestBody, DocumentRequest, IdentityCheckOutcome, PatientS
 import type { Organization, Patient, Practitioner, PractitionerRole } from "fhir/r4.js";
 import { checkRecipientAddress } from "./recipient.ts";
 import { llmParse } from "../llm/index.ts";
+import { type HeldAnswerStore, isHeldAnswerStore, MemoryHeldAnswerStore } from "../db/index.ts";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
@@ -15,7 +16,7 @@ import { buildProblemTask } from "../fhir/build-task.ts";
 import { createdReferences } from "../fhir/store.ts";
 import type { FilingContext } from "../fhir/types.ts";
 import type { ParsedDocument, ParseResult } from "@brieftaube/shared";
-import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
+import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
 import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
@@ -34,7 +35,11 @@ export function patientSnapshot(p: Patient): PatientSnapshot {
 }
 
 export class CoreRequestService implements Partial<RequestService> {
-  constructor(protected readonly d: RequestServiceDeps) {}
+  protected readonly held: HeldAnswerStore;
+
+  constructor(protected readonly d: RequestServiceDeps) {
+    this.held = d.held ?? (isHeldAnswerStore(d.repo) ? d.repo : new MemoryHeldAnswerStore());
+  }
 
   protected now(): Date {
     return this.d.now?.() ?? new Date();
@@ -263,7 +268,9 @@ export class CoreRequestService implements Partial<RequestService> {
   }
 
   /** Not filed automatically; Dr. Hofer decides in the widget (CORE-11). */
-  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", _doc: ParsedDocument, _ctx: FilingContext): Promise<AnswerOutcome> {
+  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", doc: ParsedDocument, ctx: FilingContext): Promise<AnswerOutcome> {
+    const { request: _r, newUuid: _u, ...context } = ctx;
+    await this.held.saveHeld(r.id, { document: doc, context });
     r.status = "held";
     r.heldReason = reason;
     await this.d.repo.update(r);
@@ -271,8 +278,46 @@ export class CoreRequestService implements Partial<RequestService> {
     return { result: "held", reason };
   }
 
+  async release(requestId: string, by: Requester): Promise<DocumentRequest> {
+    const { r, held } = await this.heldFor(requestId);
+    const at = this.now().toISOString();
+    await this.file(r, held.document, { ...held.context, request: r, filedAt: at, releasedBy: by.displayName }, by);
+    await this.held.deleteHeld(r.id);
+    return r;
+  }
+
+  async reject(requestId: string, by: Requester): Promise<DocumentRequest> {
+    const { r } = await this.heldFor(requestId);
+    const reason = r.heldReason;
+    r.status = "rejected";
+    delete r.heldReason;
+    await this.d.repo.update(r);
+    await this.held.deleteHeld(r.id);
+    await this.d.audit.record({
+      requestId: r.id,
+      requestReference: r.reference,
+      at: this.now().toISOString(),
+      step: "answer-filed",
+      actor: { kind: "internal-practitioner", id: by.matrixUserId, display: by.displayName },
+      what: `Held answer rejected by ${by.displayName} – nothing filed`,
+      outcome: "failure",
+      details: { decision: "rejected", heldReason: reason },
+    });
+    await this.post({ roomId: r.roomId, body: chatHeldRejected(r, by), severity: "warning" });
+    return r;
+  }
+
+  protected async heldFor(requestId: string) {
+    const r = await this.d.repo.byId(requestId);
+    if (!r) throw new DomainError("request-not-found", "Anfrage nicht gefunden.", 404);
+    if (r.status !== "held") throw new DomainError("not-held", "Diese Anfrage wartet nicht auf eine Freigabe.", 409);
+    const held = await this.held.heldAnswer(r.id);
+    if (!held) throw new DomainError("held-answer-missing", "Die zurückgehaltene Antwort ist nicht mehr vorhanden.", 409);
+    return { r, held };
+  }
+
   /** Build the transaction, send it, mark the request filed, audit + Matrix ✅. */
-  protected async file(r: DocumentRequest, doc: ParsedDocument, ctx: FilingContext): Promise<string[]> {
+  protected async file(r: DocumentRequest, doc: ParsedDocument, ctx: FilingContext, releasedBy?: Requester): Promise<string[]> {
     const bundle = doc.kind === "lab-result" ? buildLabBundle(doc, ctx) : buildRehabBundle(doc, ctx);
     let response;
     try {
@@ -284,6 +329,7 @@ export class CoreRequestService implements Partial<RequestService> {
     const filed = Object.values(refs).filter((x) => !/^(Practitioner|Organization|Task)\//.test(x));
     r.status = "filed";
     r.filedResources = filed;
+    const heldReason = r.heldReason;
     delete r.heldReason;
     delete r.lastProblem;
     await this.d.repo.update(r);
@@ -295,10 +341,12 @@ export class CoreRequestService implements Partial<RequestService> {
       requestReference: r.reference,
       at: ctx.filedAt,
       step: "answer-filed",
-      actor: { kind: "system", id: "brieftaube", display: "Brieftaube" },
-      what: `Filed ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
+      actor: releasedBy
+        ? { kind: "internal-practitioner", id: releasedBy.matrixUserId, display: releasedBy.displayName }
+        : { kind: "system", id: "brieftaube", display: "Brieftaube" },
+      what: `${releasedBy ? `Released by ${releasedBy.displayName}: filed` : "Filed"} ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
       outcome: "success",
-      details: { filedResources: filed, policy: ctx.policy },
+      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}) },
     });
     await this.post({ roomId: r.roomId, body: chatFiled(r, doc, ctx.register), severity: "success" });
     return filed;
@@ -316,7 +364,11 @@ export class CoreRequestService implements Partial<RequestService> {
     r.status = "rejected";
     if (reason !== "unreadable") r.lastProblem = reason;
     await this.d.repo.update(r);
-    await this.d.audit.record({ ...base, step: "misdelivery-caught", what, outcome: "failure", details: { misdelivery: reason, sha256: hash } });
+    if (reason === "unreadable") {
+      await this.d.audit.record({ ...base, step: "answer-filed", what, outcome: "failure", details: { problem: "unreadable", sha256: hash } });
+    } else {
+      await this.d.audit.record({ ...base, step: "misdelivery-caught", what, outcome: "failure", details: { misdelivery: reason, sha256: hash } });
+    }
     if (reason !== "unreadable") {
       try {
         await this.d.fhir.upsert(buildProblemTask(r, reason, base.at));
@@ -335,7 +387,8 @@ export class CoreRequestService implements Partial<RequestService> {
 
   /** Open requests past expiresAt become "expired" (lazily, on access). */
   protected async expireIfDue(r: DocumentRequest): Promise<DocumentRequest> {
-    const open = !["filed", "expired", "cancelled"].includes(r.status);
+    // a held answer waits for the doctor's decision and never expires
+    const open = !["filed", "held", "expired", "cancelled"].includes(r.status);
     if (open && Date.parse(r.expiresAt) <= this.now().getTime()) {
       r.status = "expired";
       await this.d.repo.update(r);

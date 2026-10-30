@@ -4,7 +4,7 @@ import type {
   AuditLog, ChatNotifier, DocumentParser, FhirStore, LlmClient, MessageSender,
   PhysicianRegister, RequestRepository, RequestService,
 } from "../ports.ts";
-import { NotImplementedError } from "../not-implemented.ts";
+import type { HeldAnswerStore } from "../db/index.ts";
 import { CoreRequestService } from "./service.ts";
 
 export interface RequestServiceDeps {
@@ -20,6 +20,8 @@ export interface RequestServiceDeps {
   llm: LlmClient;
   /** Clock, injectable for tests */
   now?: () => Date;
+  /** Held answers until released/rejected (default: the repo if it can, else in memory) */
+  held?: HeldAnswerStore;
   /** Warnings that must not fail the request (default console.warn) */
   log?: (message: string) => void;
 }
@@ -28,9 +30,6 @@ export { DomainError } from "./errors.ts";
 
 export function createRequestService(deps: RequestServiceDeps): RequestService {
   const s = new CoreRequestService(deps);
-  const todo = (m: string, task: string) => async (): Promise<never> => {
-    throw new NotImplementedError(`RequestService.${m}`, task);
-  };
   return {
     checkRecipient: s.checkRecipient.bind(s),
     createRequest: s.createRequest.bind(s),
@@ -39,7 +38,7 @@ export function createRequestService(deps: RequestServiceDeps): RequestService {
     openLink: s.openLink.bind(s),
     completeIdentityCheck: s.completeIdentityCheck.bind(s),
     submitAnswer: s.submitAnswer.bind(s),
-    release: todo("release", "CORE-11"),
-    reject: todo("reject", "CORE-11"),
+    release: s.release.bind(s),
+    reject: s.reject.bind(s),
   };
 }
