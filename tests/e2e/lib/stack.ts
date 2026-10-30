@@ -9,6 +9,7 @@ import type {
   RecipientCheckResponse,
   RequestDetailResponse,
   SmsView,
+  UiConfigResponse,
 } from "@brieftaube/shared";
 
 export const CORE = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
@@ -77,8 +78,8 @@ async function doctorAuth(): Promise<Record<string, string>> {
   return { authorization: `Bearer ${openIdToken}` };
 }
 
-async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${CORE}${path}`, {
+async function api<T>(method: string, path: string, body?: unknown, base = CORE): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
     method,
     headers: { ...(await doctorAuth()), ...(body === undefined ? {} : { "content-type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -88,15 +89,24 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   return JSON.parse(text) as T;
 }
 
-export const coreApi = {
-  recipientCheck: (body: { channel: "email" | "sms"; address: string; displayName: string }) =>
-    api<RecipientCheckResponse>("POST", "/api/recipient-check", body),
-  createRequest: (body: CreateRequestBody) => api<CreateRequestResponse>("POST", "/api/requests", body),
-  detail: (id: string) => api<RequestDetailResponse>("GET", `/api/requests/${encodeURIComponent(id)}`),
-  chat: (roomId: string) => api<ChatMessageView[]>("GET", `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`),
-  sms: () => api<SmsView[]>("GET", "/api/dev/sms"),
-  release: (id: string) => api<HeldDecisionResponse>("POST", `/api/requests/${encodeURIComponent(id)}/release`),
-};
+/** Doctor-side API client for a core at `base` (default: PUBLIC_BASE_URL). */
+export function coreApiAt(base = CORE) {
+  return {
+    recipientCheck: (body: { channel: "email" | "sms"; address: string; displayName: string }) =>
+      api<RecipientCheckResponse>("POST", "/api/recipient-check", body, base),
+    createRequest: (body: CreateRequestBody) => api<CreateRequestResponse>("POST", "/api/requests", body, base),
+    detail: (id: string) => api<RequestDetailResponse>("GET", `/api/requests/${encodeURIComponent(id)}`, undefined, base),
+    chat: (roomId: string) => api<ChatMessageView[]>("GET", `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`, undefined, base),
+    sms: () => api<SmsView[]>("GET", "/api/dev/sms", undefined, base),
+    release: (id: string) => api<HeldDecisionResponse>("POST", `/api/requests/${encodeURIComponent(id)}/release`, undefined, base),
+    uiConfig: async (): Promise<UiConfigResponse | undefined> => {
+      const res = await fetch(`${base}/api/ui-config`).catch(() => undefined);
+      return res?.ok ? ((await res.json()) as UiConfigResponse) : undefined;
+    },
+  };
+}
+export type CoreApi = ReturnType<typeof coreApiAt>;
+export const coreApi = coreApiAt(CORE);
 
 export function labRequest(address: string, note = "Bitte die aktuellen Gerinnungswerte vor dem geplanten Eingriff."): CreateRequestBody {
   return {
@@ -132,21 +142,26 @@ export interface Mail {
 
 /** Newest Mailpit message whose text mentions the request reference. */
 export async function mailFor(reference: string): Promise<Mail> {
-  return poll(`email with ${reference} in Mailpit`, async () => {
-    const res = await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`"${reference}"`)}&limit=5`);
-    if (!res.ok) return undefined;
-    const list = (await res.json()) as { messages?: { ID: string }[] };
-    const first = list.messages?.[0];
-    if (!first) return undefined;
-    const m = (await (await fetch(`${MAILPIT}/message/${first.ID}`)).json()) as {
+  return poll(`email with ${reference} in Mailpit`, async () => (await mailsFor(reference))[0]);
+}
+
+/** All Mailpit messages that mention the request reference, newest first. */
+export async function mailsFor(reference: string): Promise<Mail[]> {
+  const res = await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`"${reference}"`)}&limit=20`);
+  if (!res.ok) return [];
+  const list = (await res.json()) as { messages?: { ID: string }[] };
+  return Promise.all((list.messages ?? []).map((x) => mailById(x.ID)));
+}
+
+async function mailById(id: string): Promise<Mail> {
+  const m = (await (await fetch(`${MAILPIT}/message/${id}`)).json()) as {
       ID: string;
       To?: { Address: string }[];
       Subject?: string;
       Text?: string;
       HTML?: string;
     };
-    return { id: m.ID, to: (m.To ?? []).map((t) => t.Address), subject: m.Subject ?? "", text: m.Text ?? "", html: m.HTML ?? "" };
-  });
+  return { id: m.ID, to: (m.To ?? []).map((t) => t.Address), subject: m.Subject ?? "", text: m.Text ?? "", html: m.HTML ?? "" };
 }
 
 export async function smsFor(reference: string): Promise<SmsView> {
