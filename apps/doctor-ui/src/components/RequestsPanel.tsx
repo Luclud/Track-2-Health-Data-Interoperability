@@ -141,27 +141,29 @@ function Summary({ s }: { s: FiledSummary }) {
     return (
       <>
         <h3>Abgelegte Werte</h3>
-        <table className="lab">
-          <thead>
-            <tr>
-              <th>Wert</th>
-              <th className="num">Ergebnis</th>
-              <th className="num">Referenz</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.values.map((v) => (
-              <tr key={v.testName} className={v.interpretation !== "N" ? "flag" : ""}>
-                <td>{v.testName}</td>
-                <td className="num">
-                  <b>{v.value.toLocaleString("de-AT")}</b> {v.unit}
-                  {v.interpretation !== "N" && <span className={`flag-badge ${v.interpretation}`}>{v.interpretation === "H" ? "↑ H" : "↓ L"}</span>}
-                </td>
-                <td className="num muted">{range(v.low, v.high)}</td>
+        <div className="table-scroll">
+          <table className="lab">
+            <thead>
+              <tr>
+                <th>Wert</th>
+                <th className="num">Ergebnis</th>
+                <th className="num">Referenz</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {s.values.map((v) => (
+                <tr key={v.testName} className={v.interpretation !== "N" ? "flag" : ""}>
+                  <td>{v.testName}</td>
+                  <td className="num">
+                    <b>{v.value.toLocaleString("de-AT")}</b> {v.unit}
+                    {v.interpretation !== "N" && <span className={`flag-badge ${v.interpretation}`}>{v.interpretation === "H" ? "↑ H" : "↓ L"}</span>}
+                  </td>
+                  <td className="num muted">{range(v.low, v.high)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {s.conclusion && <p className="small">{s.conclusion}</p>}
       </>
     );
@@ -204,7 +206,7 @@ function Timeline({ audit }: { audit: AuditEntry[] }) {
                 {a.outcome === "failure" && a.step !== "misdelivery-caught" && <span className="chip alert">fehlgeschlagen</span>}
               </div>
               <div className="muted small">
-                {formatTime(a.at)} · {a.actor.display}
+                {formatTime(a.at)} · {a.actor.kind === "unverified-visitor" ? "noch nicht identifiziert" : a.actor.display}
               </div>
               {misdelivery && PROBLEM_DE[misdelivery] && <div className="problem-text">{PROBLEM_DE[misdelivery]}</div>}
             </div>

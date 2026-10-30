@@ -18,19 +18,23 @@ main{max-width:34rem;margin:0 auto;padding:1rem}
 h1{font-size:1.4rem;margin:1.2rem 0 .4rem}
 p{margin:.4rem 0 1rem}
 form{margin:0}
-.persona{display:block;width:100%;text-align:left;margin:.5rem 0;padding:1rem;font:inherit;border:2px solid #5b3a8c;border-radius:.6rem;background:#fff;color:#222;cursor:pointer;min-height:3.5rem}
-.persona:hover,.persona:focus{background:#efe8f8;outline:3px solid #5b3a8c55}
+.persona{display:block;width:100%;text-align:left;margin:.6rem 0;padding:.9rem 1rem;font:inherit;line-height:1.35;border:2px solid #5b3a8c;border-radius:.75rem;background:#fff;color:#222;cursor:pointer;min-height:3.5rem}
+.persona:hover{background:#f4effa}
+.persona:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid #f5b700;outline-offset:2px}
+input[type=text]:focus,input[type=date]:focus{border-color:#5b3a8c}
 .persona b{display:block}
-.persona span{font-size:.9rem;color:#555}
-fieldset{border:2px solid #ccc;border-radius:.6rem;padding:1rem;margin:1.5rem 0;background:#fff}
+.persona span{display:block;margin-top:.2rem;font-size:.9rem;color:#555}
+fieldset{border:1px solid #d6d1c7;border-radius:.75rem;padding:1rem;margin:1.5rem 0;background:#fff}
 legend{font-weight:700;padding:0 .3rem}
 label{display:block;margin:.8rem 0 .2rem;font-weight:600}
-input[type=text],input[type=date]{width:100%;font:inherit;padding:.7rem;border:2px solid #999;border-radius:.4rem}
+input[type=text],input[type=date]{width:100%;font:inherit;padding:.7rem;border:2px solid #8a8a8a;border-radius:.55rem;background:#fff;color:#222;min-height:3.25rem}
 .check{display:flex;gap:.6rem;align-items:flex-start;font-weight:400}
 .check input{width:1.4rem;height:1.4rem;margin-top:.15rem}
-.btn{display:block;width:100%;margin-top:1rem;padding:1rem;font:inherit;font-weight:700;color:#fff;background:#5b3a8c;border:0;border-radius:.6rem;min-height:3.5rem;cursor:pointer}
-.err{background:#fde8e8;border:2px solid #b42318;padding:.8rem;border-radius:.5rem}
-footer{font-size:.85rem;color:#666;margin:2rem 0 1rem}
+.btn{display:block;width:100%;margin-top:1.2rem;padding:1rem;font:inherit;font-weight:700;color:#fff;background:#5b3a8c;border:0;border-radius:.75rem;min-height:3.5rem;cursor:pointer}
+.err{background:#fdecea;border-left:6px solid #b3261e;padding:.8rem 1rem;border-radius:.5rem}
+.btn:hover{background:#4a2f73}
+footer{font-size:.85rem;color:#666;margin:2rem 0 1rem;padding-top:1rem;border-top:1px solid #d6d1c7}
+@media (min-width:48rem){body{font-size:17px}}
 `;
 
 function sendPage(reply: FastifyReply, title: string, body: ReturnType<typeof html>, code = 200) {

@@ -35,11 +35,13 @@ function steps(current?: Step) {
   })}</ol>`;
 }
 
+const LOGO = html`<svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+
 function layout(title: string, content: SafeHtml, opts: { view?: PublicRequestView; step?: Step } = {}): string {
   const v = opts.view;
   return page({
     title: `${title} – Brieftaube`,
-    body: html`<header class="top"><span class="brand">Brieftaube · ${v?.requesterOrganization ?? "Sichere Anfrage"}</span>${v ? html`<span class="for">Sichere Anfrage für ${v.recipientDisplayName}</span>` : ""}</header>
+    body: html`<header class="top"><div class="wrap">${LOGO}<span class="brand">Brieftaube · ${v?.requesterOrganization ?? "Sichere Anfrage"}</span>${v ? html`<span class="for">Sichere Anfrage für ${v.recipientDisplayName}</span>` : ""}</div></header>
 <main>${steps(opts.step)}${content}
 <footer>Brieftaube – sichere Übermittlung von Dokumenten an ${v?.requesterOrganization ?? "das Klinikum"}. Sie benötigen kein Konto und müssen nichts installieren.</footer></main>`,
   });
@@ -130,7 +132,7 @@ ${hasErrors ? errorSummary(errors) : ""}
 <div class="card"><dl>
 <dt>Patientin / Patient</dt><dd>${[...p.name.given, p.name.family].join(" ")}, geb. ${formatDate(p.birthDate)}</dd>
 <dt>Dokument</dt><dd>${label}</dd>
-${v.note ? html`<dt>Nachricht von ${v.requesterDisplayName}</dt><dd>${v.note}</dd>` : ""}
+${v.note ? html`<dt>Nachricht von ${v.requesterDisplayName}</dt><dd class="note">${v.note}</dd>` : ""}
 <dt>Referenz</dt><dd>${v.reference}</dd>
 </dl></div>
 <form method="post" enctype="multipart/form-data" novalidate>
@@ -148,7 +150,7 @@ ${fieldError("patientBirthDate", errors)}
 <h2>Dokument</h2>
 <label for="file">Datei hochladen <span class="hint">.md oder .txt, höchstens 1 MB</span></label>
 <input id="file" name="file" type="file" accept=".md,.txt,.markdown,text/markdown,text/plain"${invalid("document", errors)}>
-<p class="or">– oder –</p>
+<p class="or">oder</p>
 <label for="content">Text einfügen <span class="hint">den ganzen Inhalt des Dokuments, unverändert</span></label>
 <textarea id="content" name="content" rows="8"${invalid("document", errors)}>${values.content ?? ""}</textarea>
 ${fieldError("document", errors)}

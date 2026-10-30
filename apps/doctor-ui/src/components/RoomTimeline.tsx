@@ -9,7 +9,10 @@ export function RoomTimeline({ api, roomId, roomName }: { api: Api; roomId: stri
   const { data, error } = usePolling(() => api.chatMessages(roomId), [api, roomId]);
   const end = useRef<HTMLDivElement>(null);
   const count = data?.length ?? 0;
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [count]);
+  useEffect(() => {
+    // Newer browsers return a Promise from scrollIntoView; an effect must not return it.
+    end.current?.scrollIntoView({ block: "end" });
+  }, [count]);
 
   return (
     <section className="card room" aria-label="Raum-Verlauf">
