@@ -31,7 +31,7 @@ for (const f of loadDocumentFixtures()) {
 - Strings are trimmed; `\r` never appears in parsed values.
 - `unitText` is written exactly as in the document (`""` if empty); UCUM mapping is done by the FHIR builder.
 - Range `<B` gives only `referenceHigh`, `>A` gives only `referenceLow`; `A to B`, `A - B` and `A–B` give both.
-- `Validated by: Dr. Eva Brandl, lab physician` gives name `{given:["Eva"], family:"Brandl", prefix:["Dr."]}` and role `lab physician`. Everything after the first comma is the role (`medical director, Reha Waldblick`).
+- `Validated by: Dr. Eva Brandl, lab physician` gives name `{given:["Eva"], family:"Brandl", prefix:["Dr."]}` and role `lab physician`. The role is the first comma-separated part after the name only: `Dr. Anna Weber, medical director, Reha Waldblick` gives role `medical director` (matches the CORE-1 parser).
 - `requestedBy` is the raw text after `Requested by:`, and is absent if that line is missing.
 - `conclusion` is the paragraph after the table.
 
