@@ -25,3 +25,14 @@ infra/wait-for-stack.sh        # polls all four services from the host, default 
 - Synapse: `GET :8008/_matrix/federation/v1/openid/userinfo?access_token=x` returns `M_UNKNOWN_TOKEN` (not 404). That means the `openid` listener the core needs for widget auth is on.
 - HAPI keeps its data in its H2 database inside the container: it is lost on `docker compose down` (not only on `down -v`). Run `npm run seed` again after a restart; it is idempotent.
 - `npm run stack:reset` wipes Synapse users/rooms too, so `data/runtime.json` becomes stale. Always re-seed after a reset.
+
+## One-command demo (INFRA-3)
+
+```bash
+scripts/demo.sh                     # stack up → wait → seed → ui build → core (Matrix chat, SMTP, Matrix auth)
+DEMO_SKIP_BUILD=1 scripts/demo.sh   # reuse an existing apps/doctor-ui/dist
+```
+
+- Creates `.env` from `.env.example` and runs `npm install` if missing; sources `.env`, then forces `CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix`.
+- Prints all URLs before starting the core in the foreground. Ctrl-C stops the core only; `npm run stack:down` stops Docker.
+- Warm machine (images pulled, stack already up): ~15 s to "core listening". Cold: add the image pull + HAPI boot (~1–2 min).
