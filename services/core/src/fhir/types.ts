@@ -5,6 +5,8 @@ export interface FilingContext {
   request: DocumentRequest;
   identity: VerifiedIdentity;
   register: RegisterResult;
+  /** ASSIST-4: answer was picked with the KI-Hilfe für Absender (audit + Matrix line only). */
+  senderAssist?: boolean;
   policy: IdentityPolicyId;
   answer: { fileName: string; content: string; sha256: string };
   identityCheckedAt: string;

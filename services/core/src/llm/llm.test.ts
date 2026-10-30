@@ -78,12 +78,13 @@ describe("providers", () => {
   };
   const p = { system: "sys", user: "doc", jsonSchema: { type: "object" }, schemaName: "parsed_document" };
 
-  it("anthropic: forced tool call", async () => {
+  it("anthropic: tool call requested in the prompt (newer models reject a forced tool_choice)", async () => {
     const { calls, f } = capture({ content: [{ type: "tool_use", input: { a: 1 } }] });
     expect(await new AnthropicLlmClient("k", "m", undefined, f).completeJson(p)).toEqual({ a: 1 });
     expect(calls[0]!.url).toBe("https://api.anthropic.com/v1/messages");
     const body = JSON.parse(calls[0]!.init.body as string);
-    expect(body).toMatchObject({ model: "m", system: "sys", tool_choice: { type: "tool", name: "parsed_document" } });
+    expect(body).toMatchObject({ model: "m", tool_choice: { type: "auto" }, tools: [{ name: "parsed_document" }] });
+    expect(body.system).toBe("sys\n\nReturn the result only by calling the tool `parsed_document`.");
     expect((calls[0]!.init.headers as Record<string, string>)["x-api-key"]).toBe("k");
   });
   it("openai-compatible / perplexity: json_schema response format", async () => {

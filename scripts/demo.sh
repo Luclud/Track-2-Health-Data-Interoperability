@@ -42,5 +42,5 @@ URLS
 
 step "Starting core on ${base} (CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix)"
 set -a; source .env; set +a
-export CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix
+export CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix SENDER_ASSIST=true
 exec npm run --silent start

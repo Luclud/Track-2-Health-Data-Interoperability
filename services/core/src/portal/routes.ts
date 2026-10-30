@@ -12,6 +12,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { VerifiedIdentity } from "@brieftaube/shared";
 import type { Deps } from "../container.ts";
 import type { AnswerInput, AuthorizedRequestView, PublicRequestView, RequestMeta } from "../ports.ts";
+import { archiveDocument, assistLlm, assistModelName, rankArchive } from "./assist.ts";
 import { demoDocument, isDemoKind } from "./demo.ts";
 import * as V from "./views.ts";
 
@@ -81,6 +82,10 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
   const demoLinks = (token: string): V.DemoLinks | undefined =>
     deps.config.juryMode ? { sample: `${cookiePath(token)}/answer?demo=beispiel#content`, wrongPatient: `${cookiePath(token)}/answer?demo=falsche-patientin#content` } : undefined;
 
+  /** SENDER_ASSIST only: the opt-in checkbox (and, with ?assist=1, the ranked archive). */
+  const assistToggle = (token: string): V.AssistPanel | undefined =>
+    deps.config.senderAssist ? { on: `${cookiePath(token)}/answer?assist=1#assist`, off: `${cookiePath(token)}/answer` } : undefined;
+
   function currentSession(req: FastifyRequest, token: string): PortalSession | undefined {
     const s = sessions.get(readSigned(req, SESSION_COOKIE));
     return s && s.token === token ? s : undefined;
@@ -145,18 +150,33 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     return reply.redirect(`${cookiePath(token)}/answer`, 303);
   });
 
-  app.get<{ Params: { token: string }; Querystring: { demo?: string } }>("/r/:token/answer", async (req, reply) => {
+  app.get<{ Params: { token: string }; Querystring: { demo?: string; assist?: string; pick?: string } }>("/r/:token/answer", async (req, reply) => {
     const { token } = req.params;
     const s = currentSession(req, token);
     if (!s) return reply.redirect(cookiePath(token), 303);
     const demo = demoLinks(token);
-    if (demo && isDemoKind(req.query.demo)) {
-      // The sender believes it is the requested patient; only the document differs (M3 for "falsche-patientin").
-      const p = s.view.patient;
-      const values = { patientGiven: p.name.given.join(" "), patientFamily: p.name.family, patientBirthDate: p.birthDate, content: demoDocument(req.query.demo, s.view) };
-      return sendHtml(reply, V.answerPage(s.view, s.identity, values, {}, undefined, demo));
+    const p = s.view.patient;
+    const patientValues = { patientGiven: p.name.given.join(" "), patientFamily: p.name.family, patientBirthDate: p.birthDate };
+    let values: V.AnswerForm = {};
+    // The sender believes it is the requested patient; only the document differs (M3 for "falsche-patientin").
+    if (demo && isDemoKind(req.query.demo)) values = { ...patientValues, content: demoDocument(req.query.demo, s.view) };
+    const assist = assistToggle(token);
+    if (assist && req.query.assist === "1") {
+      assist.result = await rankArchive(s.view, assistLlm(deps.config.llmProvider, deps.llm), { cacheKey: token, model: assistModelName(deps.config) });
+      req.log.info({ assist: { source: assist.result.source, model: assist.result.model, ranked: assist.result.items.map((i) => `${i.id}:${i.importance}:${i.verified ? "belegt" : "nicht belegt"}`), hidden: assist.result.hiddenOtherPatients } }, "sender assist ranked");
+      assist.pickBase = `${cookiePath(token)}/answer?assist=1&pick=`;
+      if (req.query.pick !== undefined) {
+        // Only fills the form; the sender still checks the document and presses „Sicher senden“.
+        const doc = archiveDocument(s.view, req.query.pick);
+        if (doc) {
+          values = { ...patientValues, content: doc.content };
+          assist.picked = doc.title;
+        } else {
+          assist.pickError = true;
+        }
+      }
     }
-    return sendHtml(reply, V.answerPage(s.view, s.identity, {}, {}, undefined, demo));
+    return sendHtml(reply, V.answerPage(s.view, s.identity, values, {}, undefined, demo, assist));
   });
 
   app.post<{ Params: { token: string } }>("/r/:token/answer", async (req, reply) => {
@@ -169,10 +189,10 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
       form = await readAnswerForm(req);
     } catch (err) {
       req.log.warn({ err }, "could not read answer form");
-      return sendHtml(reply, V.answerPage(s.view, s.identity, {}, { form: "Die Datei konnte nicht gelesen werden (höchstens 1 MB, .md oder .txt)." }, undefined, demoLinks(token)), 400);
+      return sendHtml(reply, V.answerPage(s.view, s.identity, {}, { form: "Die Datei konnte nicht gelesen werden (höchstens 1 MB, .md oder .txt)." }, undefined, demoLinks(token), assistToggle(token)), 400);
     }
     const errors = V.validateAnswer(form);
-    if (Object.keys(errors).length > 0) return sendHtml(reply, V.answerPage(s.view, s.identity, form, errors, undefined, demoLinks(token)), 400);
+    if (Object.keys(errors).length > 0) return sendHtml(reply, V.answerPage(s.view, s.identity, form, errors, undefined, demoLinks(token), assistToggle(token)), 400);
 
     const answer: AnswerInput = {
       patientGiven: form.patientGiven!.trim(),
@@ -180,10 +200,11 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
       patientBirthDate: form.patientBirthDate!.trim(),
       content: (form.fileContent ?? form.content ?? "").replace(/^\uFEFF/, ""),
       ...(form.fileName ? { fileName: form.fileName } : {}),
+      ...(deps.config.senderAssist && form.assisted === "1" ? { senderAssist: true } : {}),
     };
     const outcome = await deps.requests.submitAnswer(token, s.identity, answer, requestMeta(req));
     if (outcome.result === "rejected") {
-      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate }, {}, outcome, demoLinks(token)), 422);
+      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate, assisted: form.assisted }, {}, outcome, demoLinks(token), assistToggle(token)), 422);
     }
     sessions.delete(readSigned(req, SESSION_COOKIE));
     reply.clearCookie(SESSION_COOKIE, { path: cookiePath(token) });

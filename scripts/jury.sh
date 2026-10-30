@@ -135,7 +135,7 @@ fi
 
 step "Starting core on ${public_base} (JURY_MODE=true CHAT_MODE=matrix AUTH_MODE=matrix MAIL_MODE=smtp)"
 export PUBLIC_BASE_URL="$public_base" EID_ISSUER_URL="${public_base}/mock-eid" JURY_MODE=true \
-  CHAT_MODE=matrix AUTH_MODE=matrix MAIL_MODE=smtp
+  CHAT_MODE=matrix AUTH_MODE=matrix MAIL_MODE=smtp SENDER_ASSIST=true
 node_modules/.bin/tsx services/core/src/main.ts &
 core_pid=$!
 

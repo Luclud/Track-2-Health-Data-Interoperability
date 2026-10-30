@@ -136,6 +136,8 @@ export interface AnswerInput {
   /** Markdown text: uploaded file content or pasted text */
   content: string;
   fileName?: string;
+  /** ASSIST-4: the sender used the KI-Hilfe and confirmed the suggested document. */
+  senderAssist?: boolean;
 }
 
 export type AnswerOutcome =

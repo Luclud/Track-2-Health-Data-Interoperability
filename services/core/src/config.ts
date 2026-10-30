@@ -41,6 +41,8 @@ export const config = {
 
   /** Live demo only: the recipient link is also returned to the doctor UI (QR code). Never in real use. */
   juryMode: env("JURY_MODE", "false") === "true",
+  /** Opt-in "KI-Hilfe für Absender" in the outside portal (prototype, synthetic demo archive). */
+  senderAssist: env("SENDER_ASSIST", "false") === "true",
   reminderBeforeExpiryMinutes: Number(env("REMINDER_BEFORE_EXPIRY_MINUTES", "1440")),
   /** 0 = scheduler off */
   schedulerIntervalSeconds: Number(env("SCHEDULER_INTERVAL_SECONDS", "60")),
