@@ -85,4 +85,4 @@ Owns: `services/core/src/{portal,eid,notify,register}/**` (except `notify/privac
 - [x] **INT-1** On `main`: full stack, seed, `npm run e2e` green for R1, R2, M1–M3.
 - [x] **INT-2** `npm run metrics` → `docs/METRICS.md`.
 - [x] **INT-3** README "How to run" verified on a clean clone.
-- [ ] **INT-4** `docs/MORNING-REPORT.md`: what works, what doesn't, known issues, exact demo commands.
+- [x] **INT-4** `docs/MORNING-REPORT.md`: what works, what doesn't, known issues, exact demo commands.
