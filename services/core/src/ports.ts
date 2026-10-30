@@ -24,7 +24,7 @@ import type {
   VerifiedIdentity,
   DocumentType,
 } from "@brieftaube/shared";
-import type { Bundle, FhirResource } from "fhir/r4";
+import type { Bundle, FhirResource } from "fhir/r4.js";
 
 // ---------------------------------------------------------------- outside world
 

@@ -1,7 +1,7 @@
 // Account A, Dev Core — task CORE-6. HAPI FHIR client (fetch, application/fhir+json).
 import type { Config } from "../config.ts";
 import type { FhirStore } from "../ports.ts";
-import type { Bundle, FhirResource } from "fhir/r4";
+import type { Bundle, FhirResource } from "fhir/r4.js";
 import { NotImplementedError } from "../not-implemented.ts";
 
 export class HapiFhirStore implements FhirStore {
