@@ -12,7 +12,7 @@ describe("createRequest", () => {
     const now = new Date("2026-10-30T08:05:00Z");
     const { deps, service } = testDeps({ now: () => now });
     const { request, warnings } = await service.createRequest(lena, labBody);
-    expect(warnings).toEqual([]);
+    expect(warnings.map((w) => w.code)).toEqual(["unknown-contact"]);
     expect(request.reference).toMatch(/^BT-[0-9A-HJKMNP-TV-Z]{4}$/);
     expect(request.status).toBe("sent");
     expect(request.expiresAt).toBe("2026-11-02T08:05:00.000Z");
