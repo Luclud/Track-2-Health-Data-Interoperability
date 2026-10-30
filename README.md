@@ -41,6 +41,14 @@ v2 answers three questions a jury asks after the v1 demo. Plan and acceptance cr
 
 Jury mode in short: `scripts/jury.sh` (or `scripts/jury.sh --lan`), open the printed doctor URL on the laptop, press `Jury-Schnellauswahl`, enter the judge's name, send, let the judge scan the QR code.
 
+## Optional: KI-Hilfe für Absender
+
+- Opt-in checkbox on the answer page („KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen“), only with `SENDER_ASSIST=true` (on in `scripts/demo.sh` and `scripts/jury.sh`). If it is off, the page is unchanged.
+- It ranks the sender's own archive for the open request: importance, a one-sentence reason and an evidence line that is checked literally against the document (otherwise „nicht belegt“). „Übernehmen“ only fills the form; nothing is sent until the sender presses „Sicher senden“.
+- Before any AI runs, documents whose name or birth date do not match the request patient are removed and only counted („2 Dokumente anderer Personen wurden ausgeblendet“).
+- Real use: a local model in the sender's practice (e.g. Ollama), so documents leave the practice only with „Sicher senden“. Prototype: a synthetic demo archive on our server (`scenario/sender-archive/`), ranked by Claude if `LLM_PROVIDER` is set (badge „KI: <model> (Demo über Cloud, nur synthetische Daten)“), otherwise by the precomputed `ranking.mock.json` (badge „KI-Vorschlag (Demo, MOCK)“). LLM errors and timeouts fall back to the mock.
+- Code: `services/core/src/portal/assist.ts`; test the click path with `npx playwright test -c tests/playwright.config.ts assist`.
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the diagram, ports, lifecycle and state machine.

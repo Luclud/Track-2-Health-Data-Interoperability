@@ -163,6 +163,7 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     const assist = assistToggle(token);
     if (assist && req.query.assist === "1") {
       assist.result = await rankArchive(s.view, assistLlm(deps.config.llmProvider, deps.llm), { cacheKey: token, model: assistModelName(deps.config) });
+      req.log.info({ assist: { source: assist.result.source, model: assist.result.model, ranked: assist.result.items.map((i) => `${i.id}:${i.importance}:${i.verified ? "belegt" : "nicht belegt"}`), hidden: assist.result.hiddenOtherPatients } }, "sender assist ranked");
       assist.pickBase = `${cookiePath(token)}/answer?assist=1&pick=`;
       if (req.query.pick !== undefined) {
         // Only fills the form; the sender still checks the document and presses „Sicher senden“.

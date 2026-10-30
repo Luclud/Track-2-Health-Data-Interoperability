@@ -25,6 +25,14 @@ Goal: a judge becomes the outside person **live, on their own phone**. Dr. Lena 
 
 Talking points: identity first (e-ID), nothing about the patient before the check, wrong patient never filed, every AI-read value shows its source line, every step audited.
 
+## Video beat: KI-Hilfe für Absender (≈ 20 s, `SENDER_ASSIST=true`)
+
+1. Dr. Hofer requests the Laborbefund for Maria Beispiel with the note „Unterschenkelfraktur links, OP geplant – bitte aktuelle Gerinnung“.
+2. The lab doctor opens the link → e-ID → ticks **KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen**.
+3. The ranked list appears: the current clotting panel (22.10.2026) is first with its evidence line, the 2024 panel, blood count and invoice rank lower, and „2 Dokumente anderer Personen wurden ausgeblendet“. The badge shows the model (Claude) or „MOCK“.
+4. **Übernehmen** → the form is filled („Vorschlag übernommen …“) → **Sicher senden** → „gesendet“.
+5. Element shows ✅ with the table, as usual.
+
 ## Fallbacks
 
 | Problem | Fallback |

@@ -1,17 +1,15 @@
-# KI-Auswertung – MOCK (kein echtes Modell)
+# KI-Auswertung
 
-> **MOCK:** Das "Modell" gibt die Erwartungswerte zurück. Dieser Bericht prüft nur die Messung und die Verifikation, **nicht** die Lesequalität eines echten Modells. Echter Lauf: `LLM_PROVIDER=anthropic LLM_API_KEY=… npm run ai:eval`.
-
-- Anbieter: mock
-- Modell: Erwartungswerte aus den Fixtures
-- Datum: 30. Oktober 2026 um 06:34
+- Anbieter: anthropic
+- Modell: claude-sonnet-5-5
+- Datum: 30. Oktober 2026 um 12:35
 - Weg: nur KI (deterministischer Parser übersprungen), danach Verifikation gegen den Originaltext
 - Dokumente: 17
 
 | Dokument | Art | Werte richtig | Werte falsch | Von Verifikation abgelehnt | Patient richtig | Falle (erfundener Wert) abgelehnt |
 |---|---|---|---|---|---|---|
-| `tests/fixtures/documents/free-text-letter-not-in-format.md` | Labor | 4/4 | 0 | nein | ja | ja |
-| `tests/fixtures/documents/lab-bullet-list-de.md` | Labor | 4/4 | 0 | nein | ja | ja |
+| `tests/fixtures/documents/free-text-letter-not-in-format.md` | Labor | 3/4 | 1 | nein | ja | ja |
+| `tests/fixtures/documents/lab-bullet-list-de.md` | Labor | 3/4 | 1 | nein | ja | ja |
 | `tests/fixtures/documents/lab-columns-reordered.md` | Labor | 3/3 | 0 | nein | ja | ja |
 | `tests/fixtures/documents/lab-critical-platelets-inr.md` | Labor | 4/4 | 0 | nein | ja | ja |
 | `tests/fixtures/documents/lab-crlf-line-endings.md` | Labor | 4/4 | 0 | nein | ja | ja |
@@ -30,8 +28,8 @@
 
 ## Summe
 
-- Werte richtig: 51 von 51
-- Werte falsch: 0
+- Werte richtig: 49 von 51
+- Werte falsch: 2
 - Dokumente von der Verifikation abgelehnt: 0 von 17
 - Patient richtig: 17 von 17 angenommenen Dokumenten
 - Falle abgelehnt: 17 von 17
