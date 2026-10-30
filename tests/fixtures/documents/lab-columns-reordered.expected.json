@@ -1,0 +1,65 @@
+{
+  "$note": "Table columns in a different order: columns must be matched by header name, not position. % unit.",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor Donaustadt: lab report",
+    "organization": "Labor Donaustadt",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-11-03T07:15:00+01:00",
+    "reported": "2026-11-03T09:40:00+01:00",
+    "values": [
+      {
+        "testName": "Glucose",
+        "value": 142,
+        "unitText": "mg/dL",
+        "referenceLow": 70,
+        "referenceHigh": 99,
+        "loinc": "2345-7"
+      },
+      {
+        "testName": "HbA1c",
+        "value": 7.4,
+        "unitText": "%",
+        "referenceLow": 4.0,
+        "referenceHigh": 5.6,
+        "loinc": "4548-4"
+      },
+      {
+        "testName": "Cholesterol",
+        "value": 185,
+        "unitText": "mg/dL",
+        "referenceLow": 0,
+        "referenceHigh": 200,
+        "loinc": "2093-3"
+      }
+    ],
+    "conclusion": "Glucose and HbA1c are raised.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Martin"
+        ],
+        "family": "Huber",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "specialist in laboratory medicine"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "H",
+    "N"
+  ]
+}

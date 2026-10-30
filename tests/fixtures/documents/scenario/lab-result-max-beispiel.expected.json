@@ -1,0 +1,76 @@
+{
+  "$note": "M3 wrong patient (scenario).",
+  "$source": "scenario/documents/lab-result-max-beispiel.md",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor Kanalstraße: lab report",
+    "organization": "Labor Kanalstraße",
+    "patient": {
+      "name": {
+        "given": [
+          "Max"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1960-01-01"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-10-22T08:25:00+02:00",
+    "reported": "2026-10-22T11:45:00+02:00",
+    "values": [
+      {
+        "testName": "INR (prothrombin time)",
+        "value": 2.6,
+        "unitText": "",
+        "referenceLow": 0.8,
+        "referenceHigh": 1.2,
+        "loinc": "6301-6"
+      },
+      {
+        "testName": "aPTT",
+        "value": 44,
+        "unitText": "s",
+        "referenceLow": 25,
+        "referenceHigh": 37,
+        "loinc": "14979-9"
+      },
+      {
+        "testName": "Platelets",
+        "value": 198,
+        "unitText": "10^9/L",
+        "referenceLow": 150,
+        "referenceHigh": 400,
+        "loinc": "777-3"
+      },
+      {
+        "testName": "Fibrinogen",
+        "value": 3.4,
+        "unitText": "g/L",
+        "referenceLow": 2.0,
+        "referenceHigh": 4.0,
+        "loinc": "3255-7"
+      }
+    ],
+    "conclusion": "INR and aPTT are raised, as expected under anticoagulation with phenprocoumon.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Eva"
+        ],
+        "family": "Brandl",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "lab physician"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "H",
+    "N",
+    "N"
+  ],
+  "patientMatchesMaria": false
+}

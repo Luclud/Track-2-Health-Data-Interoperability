@@ -1,0 +1,74 @@
+{
+  "$note": "Windows line endings (\\r\\n) on every line. Kept by .gitattributes (-text). No \\r may leak into parsed strings.",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor Kanalstraße: lab report",
+    "organization": "Labor Kanalstraße",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-10-29T08:00:00+01:00",
+    "reported": "2026-10-29T11:20:00+01:00",
+    "values": [
+      {
+        "testName": "INR (prothrombin time)",
+        "value": 1.3,
+        "unitText": "",
+        "referenceLow": 0.8,
+        "referenceHigh": 1.2,
+        "loinc": "6301-6"
+      },
+      {
+        "testName": "aPTT",
+        "value": 36,
+        "unitText": "s",
+        "referenceLow": 25,
+        "referenceHigh": 37,
+        "loinc": "14979-9"
+      },
+      {
+        "testName": "Platelets",
+        "value": 140,
+        "unitText": "10^9/L",
+        "referenceLow": 150,
+        "referenceHigh": 400,
+        "loinc": "777-3"
+      },
+      {
+        "testName": "Fibrinogen",
+        "value": 1.6,
+        "unitText": "g/L",
+        "referenceLow": 2.0,
+        "referenceHigh": 4.0,
+        "loinc": "3255-7"
+      }
+    ],
+    "conclusion": "INR is slightly raised, platelets and fibrinogen are low.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Eva"
+        ],
+        "family": "Brandl",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "lab physician"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "N",
+    "L",
+    "L"
+  ]
+}

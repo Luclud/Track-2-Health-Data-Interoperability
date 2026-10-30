@@ -1,0 +1,47 @@
+{
+  "$note": "Rehab report from another clinic; stay crosses a month ('28 September to 19 October 2026'); sender with 'Mag.' title. markdown = full file content (filled in by the loader).",
+  "ok": true,
+  "document": {
+    "kind": "rehab-discharge-report",
+    "title": "Reha Seeblick: discharge report",
+    "organization": "Reha Seeblick",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "stay": {
+      "start": "2026-09-28",
+      "end": "2026-10-19"
+    },
+    "reason": "rehabilitation after surgery for a fracture of the right wrist on 15 September 2026",
+    "writtenBy": {
+      "name": {
+        "given": [
+          "Klaus"
+        ],
+        "family": "Wimmer",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "medical director"
+    },
+    "sentBy": {
+      "name": {
+        "given": [
+          "Sabine"
+        ],
+        "family": "Lechner",
+        "prefix": [
+          "Mag."
+        ]
+      },
+      "role": "discharge management"
+    }
+  }
+}

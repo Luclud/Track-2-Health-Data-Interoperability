@@ -1,0 +1,44 @@
+{
+  "$note": "Stay crosses the year boundary ('21 December 2026 to 11 January 2027').",
+  "ok": true,
+  "document": {
+    "kind": "rehab-discharge-report",
+    "title": "Reha Waldblick: discharge report",
+    "organization": "Reha Waldblick",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "stay": {
+      "start": "2026-12-21",
+      "end": "2027-01-11"
+    },
+    "reason": "rehabilitation after a total knee replacement on the right, on 9 December 2026 at Klinikum Beispielstadt",
+    "writtenBy": {
+      "name": {
+        "given": [
+          "Johanna"
+        ],
+        "family": "Leitner",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "medical director"
+    },
+    "sentBy": {
+      "name": {
+        "given": [
+          "Stefan"
+        ],
+        "family": "Kern"
+      },
+      "role": "discharge management"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "$note": "Optional 'Requested by' line missing (requestedBy absent). µmol/L unit. Summer time.",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor am Ring: lab report",
+    "organization": "Labor am Ring",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "sampleTaken": "2026-07-14T09:05:00+02:00",
+    "reported": "2026-07-14T13:30:00+02:00",
+    "values": [
+      {
+        "testName": "Potassium",
+        "value": 5.9,
+        "unitText": "mmol/L",
+        "referenceLow": 3.5,
+        "referenceHigh": 5.1,
+        "loinc": "2823-3"
+      },
+      {
+        "testName": "Sodium",
+        "value": 139,
+        "unitText": "mmol/L",
+        "referenceLow": 136,
+        "referenceHigh": 145,
+        "loinc": "2951-2"
+      },
+      {
+        "testName": "Creatinine",
+        "value": 88,
+        "unitText": "µmol/L",
+        "referenceLow": 45,
+        "referenceHigh": 84,
+        "loinc": "14682-9"
+      }
+    ],
+    "conclusion": "Potassium and creatinine are raised.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Sophie"
+        ],
+        "family": "Aigner",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "lab physician"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "N",
+    "H"
+  ]
+}
