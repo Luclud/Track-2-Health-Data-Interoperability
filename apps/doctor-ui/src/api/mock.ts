@@ -1,6 +1,7 @@
 // In-browser mock of the core API (?mock=1). Lets the UI run and be screenshotted without the core.
 // Behaviour follows docs/DESIGN.md loosely; the real rules live in the core.
 import type {
+  FiledOriginal,
   AuditEntry,
   AuditStep,
   ChatMessageView,
@@ -38,7 +39,41 @@ interface MockRecord {
   audit: AuditEntry[];
   summary?: FiledSummary;
   review?: HeldReview;
+  original?: FiledOriginal;
 }
+
+const MOCK_SHA = "3f9a1c0e7b2d4a6f8e1c3b5d7f9a0c2e4b6d8f1a3c5e7b9d0f2a4c6e8b1d3f5a";
+const mockOriginal = (storedIn: string, fileName: string, text: string): FiledOriginal => ({ storedIn, fileName, contentType: "text/markdown", text, sha256: MOCK_SHA });
+
+const LAB_ORIGINAL = [
+  "# Labor Kanalstraße: lab report",
+  "",
+  "Patient: Maria Beispiel, born 12 March 1961",
+  "Requested by: Dr. Lena Hofer, Klinikum Beispielstadt",
+  "Sample taken: 22 October 2026, 08:10",
+  "Reported: 22 October 2026, 11:40",
+  "",
+  "| Test | Result | Unit | Reference range | LOINC code |",
+  "|---|---|---|---|---|",
+  "| INR (prothrombin time) | 1.0 | | 0.8 to 1.2 | 6301-6 |",
+  "| aPTT | 31 | s | 25 to 37 | 14979-9 |",
+  "| Platelets | 245 | 10^9/L | 150 to 400 | 777-3 |",
+  "| Fibrinogen | 3.1 | g/L | 2.0 to 4.0 | 3255-7 |",
+  "",
+  "No coagulation disorder. Fit for surgery from a coagulation point of view.",
+  "",
+  "Validated by: Dr. Eva Brandl, lab physician",
+].join("\n");
+
+const REHAB_ORIGINAL = [
+  "# Reha Waldblick: discharge report",
+  "",
+  "Patient: Maria Beispiel, born 12 March 1961",
+  "Stay: 2 September 2026 to 23 September 2026",
+  "",
+  "## Summary",
+  "Orthopaedic rehabilitation after right total knee replacement. Mobile with one crutch, pain well controlled.",
+].join("\n");
 
 const HELD_SOURCE = [
   "LABOR DR. WEISS – Befundübermittlung per Fax",
@@ -132,6 +167,7 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
       ],
       conclusion: "No coagulation disorder. Fit for surgery from a coagulation point of view.",
     },
+    original: mockOriginal("DiagnosticReport/dr-1", "labor-kanalstrasse.md", LAB_ORIGINAL),
   };
 
   const m1 = mk("BT-M1X4", "identity-failed", 60, { recipient: { ...eva, channel: "email", address: "eva.brandl@labor-kanaI.example" }, lastProblem: "identity-mismatch" });
@@ -179,6 +215,7 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
       stay: { start: "2026-09-02", end: "2026-09-23" },
       excerpt: "Orthopaedic rehabilitation after right total knee replacement. Mobile with one crutch, pain well controlled.",
     },
+    original: mockOriginal("DocumentReference/doc-1", "reha-waldblick.md", REHAB_ORIGINAL),
   };
 
   const msg = (minutesAgo: number, severity: ChatMessageView["severity"], body: string, html?: string): ChatMessageView => ({
@@ -322,7 +359,13 @@ export class MockApi implements Api {
     await delay();
     const r = this.records.find((x) => x.view.id === requestId);
     if (!r) throw new ApiRequestError(404, "request-not-found", "Anfrage nicht gefunden.");
-    return { request: r.view, audit: r.audit, summary: r.summary, ...(r.view.status === "held" && r.review ? { review: r.review } : {}) };
+    return {
+      request: r.view,
+      audit: r.audit,
+      summary: r.summary,
+      ...(r.view.status === "held" && r.review ? { review: r.review } : {}),
+      ...(r.view.status === "filed" && r.original ? { original: r.original } : {}),
+    };
   }
 
   async release(requestId: string): Promise<HeldDecisionResponse> {
@@ -339,6 +382,7 @@ export class MockApi implements Api {
     if (!r) throw new ApiRequestError(404, "request-not-found", "Anfrage nicht gefunden.");
     r.view = { ...r.view, status, heldReason: undefined };
     if (status === "filed" && r.review?.values) r.summary = summaryFromReview(r.review.values);
+    if (status === "filed" && r.review) r.original = mockOriginal("DiagnosticReport/dr-held", "befund-fax.md", r.review.sourceText);
     return { request: r.view };
   }
 

@@ -44,6 +44,10 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     if (summary?.kind !== "lab-result") return;
     expect(summary.values).toHaveLength(4);
     expect(summary.values[0]).toMatchObject({ testName: expect.stringContaining("INR"), value: 1.0, unit: "", low: 0.8, high: 1.2, interpretation: "N" });
+    const { original } = (await service.detail(request.id))!;
+    expect(original).toMatchObject({ fileName: "lab-result-maria-beispiel.md", contentType: "text/markdown", text: doc("lab-result-maria-beispiel.md") });
+    expect(original!.storedIn).toBe(out.filedResources.find((x) => x.startsWith("DiagnosticReport/")));
+    expect(original!.sha256).toBe((await deps.audit.forRequest(request.id)).find((a) => a.step === "answer-sent")!.details!.sha256);
     await expect(service.submitAnswer(token, id, { ...maria, content: "x" }, {})).rejects.toMatchObject({ code: "already-answered" });
   });
 
@@ -61,6 +65,7 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     const detail = (await service.detail(request.id))!;
     expect(detail.request.status).toBe("filed");
     expect(detail.summary).toBeUndefined();
+    expect(detail.original).toBeUndefined();
   });
 
   it("rehab report from Stefan Kern is filed", async () => {
@@ -78,6 +83,9 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     expect(summary.excerpt.length).toBeGreaterThan(20);
     expect(summary.excerpt.length).toBeLessThanOrEqual(300);
     expect(summary.excerpt).not.toContain("##");
+    const { original } = (await service.detail(request.id))!;
+    expect(original?.text).toBe(doc("rehab-report-maria-beispiel.md"));
+    expect(original?.storedIn).toMatch(/^DocumentReference\//);
   });
 });
 

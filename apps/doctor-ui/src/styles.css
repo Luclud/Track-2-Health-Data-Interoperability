@@ -210,3 +210,9 @@ button.jury-btn { padding: 6px 12px; font-size: 0.88rem; border-color: var(--war
 .qr-box canvas { width: min(260px, 100%) !important; height: auto !important; image-rendering: pixelated; }
 .qr-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; overflow-wrap: anywhere; text-align: center; margin: 0 0 10px; }
 .modal .banner { margin-bottom: 10px; }
+
+/* Filed original document (detail view) */
+details.original { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+details.original > summary { cursor: pointer; list-style: revert; overflow-wrap: anywhere; }
+details.original[open] > summary { margin-bottom: 8px; }
+.original-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: baseline; margin-top: 8px; }

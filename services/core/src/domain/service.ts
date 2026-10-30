@@ -26,7 +26,7 @@ import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
 import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
-import { filedSummary } from "./summary.ts";
+import { filedOriginal, filedSummary } from "./summary.ts";
 import { heldReview } from "./review.ts";
 import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
@@ -145,6 +145,8 @@ export class CoreRequestService implements Partial<RequestService> {
     try {
       const summary = await filedSummary(this.d.fhir, req, this.criticalLimits());
       if (summary) out.summary = summary;
+      const original = await filedOriginal(this.d.fhir, req);
+      if (original) out.original = original;
     } catch {
       // Summary is display-only; an unreachable FHIR server must not break the detail view.
     }

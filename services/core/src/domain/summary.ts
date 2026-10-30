@@ -1,9 +1,10 @@
 // Filed summary for GET /api/requests/:id (lab values table / rehab excerpt), read back from the FHIR store.
-import type { DocumentRequest, FiledSummary } from "@brieftaube/shared";
+import type { DocumentRequest, FiledOriginal, FiledSummary } from "@brieftaube/shared";
 import type { DiagnosticReport, DocumentReference, Observation } from "fhir/r4.js";
 import { SYSTEMS } from "@brieftaube/shared";
 import type { FhirStore } from "../ports.ts";
 import { type CriticalLimits, criticalFor } from "./critical.ts";
+import { sha256 } from "./tokens.ts";
 
 const EXCERPT_MAX = 300;
 
@@ -61,4 +62,21 @@ export async function filedSummary(fhir: FhirStore, r: DocumentRequest, limits: 
   const p = ref.context?.period;
   if (p?.start && p.end) s.stay = { start: p.start, end: p.end };
   return s;
+}
+
+/** The received document, read back from its FHIR attachment (display only). */
+export async function filedOriginal(fhir: FhirStore, r: DocumentRequest): Promise<FiledOriginal | undefined> {
+  if (r.status !== "filed") return undefined;
+  const type = r.documentType === "lab-result" ? "DiagnosticReport" : "DocumentReference";
+  const id = idOf(r.filedResources, type);
+  if (!id) return undefined;
+  const attachment =
+    type === "DiagnosticReport"
+      ? (await fhir.read<DiagnosticReport>("DiagnosticReport", id))?.presentedForm?.[0]
+      : (await fhir.read<DocumentReference>("DocumentReference", id))?.content[0]?.attachment;
+  if (!attachment?.data) return undefined;
+  const text = Buffer.from(attachment.data, "base64").toString("utf8");
+  const o: FiledOriginal = { storedIn: `${type}/${id}`, contentType: attachment.contentType ?? "text/plain", text, sha256: sha256(text) };
+  if (attachment.title) o.fileName = attachment.title;
+  return o;
 }
