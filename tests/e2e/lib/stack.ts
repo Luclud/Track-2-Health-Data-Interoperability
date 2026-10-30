@@ -48,10 +48,38 @@ export async function poll<T>(what: string, fn: () => Promise<T | undefined>, ti
 
 // ------------------------------------------------------------------ core API (doctor side)
 
+/** E2E_AUTH=matrix (core with AUTH_MODE=matrix): a Synapse OpenID token for Lena, as the Element widget sends it. */
+export const E2E_AUTH = process.env.E2E_AUTH ?? "dev";
+let openIdToken: string | undefined;
+
+async function lenaAccessToken(): Promise<string> {
+  const res = await fetch(`${SYNAPSE}/_matrix/client/v3/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user: "lena.hofer" }, password: "demo-lena-2026" }),
+  });
+  if (!res.ok) throw new Error(`Synapse login as lena.hofer -> ${res.status}: ${await res.text()}`);
+  return ((await res.json()) as { access_token: string }).access_token;
+}
+
+async function doctorAuth(): Promise<Record<string, string>> {
+  if (E2E_AUTH !== "matrix") return { "x-dev-user": DEV_USER };
+  if (!openIdToken) {
+    const res = await fetch(`${SYNAPSE}/_matrix/client/v3/user/${encodeURIComponent(DEV_USER)}/openid/request_token`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${await lenaAccessToken()}`, "content-type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) throw new Error(`OpenID token for ${DEV_USER} -> ${res.status}: ${await res.text()}`);
+    openIdToken = ((await res.json()) as { access_token: string }).access_token;
+  }
+  return { authorization: `Bearer ${openIdToken}` };
+}
+
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${CORE}${path}`, {
     method,
-    headers: { "x-dev-user": DEV_USER, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    headers: { ...(await doctorAuth()), ...(body === undefined ? {} : { "content-type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
