@@ -66,7 +66,10 @@ export interface DocumentRequest {
   /** Matrix room the request came from; notifications go back here */
   roomId: string;
   patient: PatientSnapshot;
+  /** For free-text requests a first guess only; set to the kind actually received once the answer arrives. */
   documentType: DocumentType;
+  /** The doctor only wrote what they need (note); the sender chooses the document. No type was picked. */
+  freeText?: boolean;
   /** Shown to the recipient ONLY after a successful identity check. Never in email/SMS. */
   note?: string;
   recipient: Recipient;

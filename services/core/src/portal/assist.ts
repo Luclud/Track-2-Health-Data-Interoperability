@@ -16,7 +16,7 @@ export interface AssistItem { id: string; title: string; date?: string; importan
 export interface AssistResult { source: "mock" | "llm"; model?: string; items: AssistItem[]; hiddenOtherPatients: number }
 export interface ArchiveDocument { id: string; title: string; date?: string; content: string }
 
-type AssistView = Pick<AuthorizedRequestView, "patient" | "documentType" | "note">;
+type AssistView = Pick<AuthorizedRequestView, "patient" | "documentType" | "note" | "freeText">;
 export interface AssistOptions { cacheKey?: string; model?: string; timeoutMs?: number }
 
 const DIR = new URL("../../../../scenario/sender-archive/", import.meta.url);
@@ -101,8 +101,9 @@ type Ranked = { id: string; importance: Importance; reason: string; evidence?: s
 
 async function askLlm(llm: LlmClient, v: AssistView, docs: ArchiveDocument[], timeoutMs: number): Promise<Ranked[]> {
   const user = [
-    `Angefragtes Dokument: ${DOCUMENT_TYPE_LABELS_DE[v.documentType]}`,
-    `Nachricht der anfragenden Ärztin / des anfragenden Arztes: ${v.note?.trim() || "(keine)"}`,
+    ...(v.freeText
+      ? [`Anfrage der anfragenden Ärztin / des anfragenden Arztes (Freitext, kein Dokumenttyp vorgegeben): ${v.note?.trim() || "(keine)"}`]
+      : [`Angefragtes Dokument: ${DOCUMENT_TYPE_LABELS_DE[v.documentType]}`, `Nachricht der anfragenden Ärztin / des anfragenden Arztes: ${v.note?.trim() || "(keine)"}`]),
     "",
     ...docs.map((d) => `<document id="${d.id}">\n${d.content}\n</document>`),
   ].join("\n");

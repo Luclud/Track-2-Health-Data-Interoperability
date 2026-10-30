@@ -21,7 +21,8 @@ import type { AuditEntry } from "./audit.ts";
 /** POST /api/requests */
 export interface CreateRequestBody {
   patientId: string; // FHIR Patient id
-  documentType: DocumentType;
+  /** Optional: without it the request is free text and `note` (what is needed) is required. */
+  documentType?: DocumentType;
   note?: string;
   roomId: string;
   recipient: {
@@ -69,6 +70,8 @@ export interface DocumentRequestView {
   expiresAt?: string;
   status: RequestStatus;
   documentType: DocumentType;
+  freeText?: boolean;
+  note?: string;
   patient: PatientSnapshot;
   recipient: DocumentRequest["recipient"];
   filedResources: string[];

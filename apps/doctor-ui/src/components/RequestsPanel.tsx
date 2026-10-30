@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatValueDe, labNameDe, unitDisplay, type AuditEntry, type DocumentRequestView, type FiledOriginal, type FiledSummary, type RequestDetailResponse } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
-import { CHANNEL_DE, DOC_TYPE_DE, HELD_DE, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
+import { CHANNEL_DE, HELD_DE, requestLabel, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
 import { formatDate, formatDateTime, formatTime } from "../format.ts";
 import { usePolling } from "./usePolling.ts";
 import { expiryText, groupRequests } from "./board.ts";
@@ -60,7 +60,7 @@ export function RequestsPanel({ api, roomId, refreshKey }: Props) {
                       <StatusChip r={r} />
                     </div>
                     <div>
-                      {DOC_TYPE_DE[r.documentType]} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
+                      {requestLabel(r)} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
                     </div>
                     <div className="muted small">
                       an {r.recipient.displayName} ({CHANNEL_DE[r.recipient.channel]}) · {formatDateTime(r.createdAt)}
@@ -119,7 +119,7 @@ function DetailBody({ d, busy, onDecide }: { d: RequestDetailResponse; busy: boo
     <>
       <div className="req-head">
         <h2>
-          {r.reference} · {DOC_TYPE_DE[r.documentType]}
+          {r.reference} · {requestLabel(r)}
         </h2>
         <StatusChip r={r} />
       </div>
@@ -136,6 +136,12 @@ function DetailBody({ d, busy, onDecide }: { d: RequestDetailResponse; busy: boo
             {CHANNEL_DE[r.recipient.channel]}: {r.recipient.address}
           </div>
         </dd>
+        {r.freeText && r.note && (r.status === "filed" || r.status === "held") && (
+          <>
+            <dt>Angefragt</dt>
+            <dd>„{r.note}“</dd>
+          </>
+        )}
       </dl>
 
       {r.lastProblem && r.status !== "filed" && (

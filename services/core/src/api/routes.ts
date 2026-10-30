@@ -33,13 +33,14 @@ function recipientCheckBody(b: unknown): RecipientCheckBody {
 function createBody(b: unknown, defaultRoomId: string): CreateRequestBody {
   const r = (b ?? {}) as Record<string, unknown>;
   if (!str(r.patientId)) throw bad("patientId fehlt");
-  if (!DOC_TYPES.includes(r.documentType as DocumentType)) throw bad("documentType ungültig");
+  if (r.documentType !== undefined && !DOC_TYPES.includes(r.documentType as DocumentType)) throw bad("documentType ungültig");
+  if (r.documentType === undefined && !str(r.note)) throw bad("Bitte beschreiben Sie, was Sie brauchen (note).");
   const rec = (r.recipient ?? {}) as Record<string, unknown>;
   const { channel, address, displayName } = recipientCheckBody(rec);
   if (r.note !== undefined && typeof r.note !== "string") throw bad("note muss Text sein");
   return {
     patientId: r.patientId,
-    documentType: r.documentType as DocumentType,
+    ...(r.documentType !== undefined ? { documentType: r.documentType as DocumentType } : {}),
     ...(typeof r.note === "string" ? { note: r.note } : {}),
     roomId: str(r.roomId) ? r.roomId : defaultRoomId,
     recipient: {

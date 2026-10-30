@@ -125,6 +125,7 @@ export interface PublicRequestView {
 export interface AuthorizedRequestView extends PublicRequestView {
   patient: Pick<PatientSnapshot, "name" | "birthDate">;
   documentType: DocumentType;
+  freeText?: boolean;
   note?: string;
 }
 

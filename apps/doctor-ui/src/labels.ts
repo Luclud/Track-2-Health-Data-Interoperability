@@ -5,6 +5,12 @@ export const DOC_TYPE_DE: Record<DocumentType, string> = {
   "rehab-discharge-report": "Reha-Entlassungsbericht",
 };
 
+/** What the doctor asked for: free text until a document arrived, then the type that was actually sent. */
+export function requestLabel(r: { documentType: DocumentType; freeText?: boolean; note?: string; status: RequestStatus }): string {
+  if (r.freeText && r.status !== "filed" && r.status !== "held") return `„${r.note ?? ""}“`;
+  return DOC_TYPE_DE[r.documentType];
+}
+
 export const CHANNEL_DE: Record<Channel, string> = { email: "E-Mail", sms: "SMS" };
 
 export type Tone = "neutral" | "info" | "success" | "warning" | "alert";

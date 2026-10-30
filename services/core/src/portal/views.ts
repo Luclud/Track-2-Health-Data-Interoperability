@@ -165,7 +165,7 @@ ${hidden > 0 ? html`<p class="hint">${hidden === 1 ? "1 Dokument einer anderen P
 }
 
 export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity, values: AnswerForm, errors: AnswerErrors = {}, rejected?: Extract<AnswerOutcome, { result: "rejected" }>, demo?: DemoLinks, assist?: AssistPanel): string {
-  const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
+  const label = v.freeText ? "Dokument" : DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const p = v.patient;
   const who = [...(identity.name.prefix ?? []), ...identity.name.given, identity.name.family].join(" ");
   const hasErrors = Object.keys(errors).length > 0;
@@ -174,11 +174,14 @@ export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity,
     html`<p class="notice ok">Identität bestätigt: ${who}</p>
 ${rejected ? html`<div class="notice err" role="alert"><b>Das Dokument wurde nicht übernommen.</b><br>${rejected.messageForResponder}<br>Bitte prüfen Sie das Dokument und senden Sie es erneut.</div>` : ""}
 ${hasErrors ? errorSummary(errors) : ""}
-<h1>${v.requesterDisplayName} bittet um: ${label}</h1>
+${v.freeText ? html`<h1>${v.requesterDisplayName} bittet um ein Dokument</h1>` : html`<h1>${v.requesterDisplayName} bittet um: ${label}</h1>`}
 <div class="card"><dl>
 <dt>Patientin / Patient</dt><dd>${[...p.name.given, p.name.family].join(" ")}, geb. ${formatDate(p.birthDate)}</dd>
-<dt>Dokument</dt><dd>${label}</dd>
-${v.note ? html`<dt>Nachricht von ${v.requesterDisplayName}</dt><dd class="note">${v.note}</dd>` : ""}
+${v.freeText
+    ? html`<dt>Was wird gebraucht?</dt><dd class="note">${v.note ?? ""}</dd>
+<dd class="hint">${v.requesterDisplayName} sieht Ihre Ablage nicht. Sie entscheiden, welches Dokument passt – nur das gesendete Dokument verlässt Ihre Praxis.</dd>`
+    : html`<dt>Dokument</dt><dd>${label}</dd>
+${v.note ? html`<dt>Nachricht von ${v.requesterDisplayName}</dt><dd class="note">${v.note}</dd>` : ""}`}
 <dt>Referenz</dt><dd>${v.reference}</dd>
 </dl></div>
 <form method="post" enctype="multipart/form-data" novalidate>
@@ -250,11 +253,11 @@ function receiptBox(r: Receipt) {
 }
 
 export function resultPage(v: AuthorizedRequestView, outcome: Exclude<AnswerOutcome, { result: "rejected" }>, receipt?: Receipt): string {
-  const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
+  const label = v.freeText ? "Dokument" : DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const body =
     outcome.result === "filed"
       ? html`<h1>Vielen Dank – gesendet!</h1><p class="notice ok" role="status">Ihr ${label} wurde sicher an ${v.requesterDisplayName} übermittelt und abgelegt.</p>`
-      : html`<h1>Vielen Dank – gesendet!</h1><p class="notice" role="status">Ihr ${label} ist bei ${v.requesterDisplayName} angekommen. Er wird noch kurz geprüft, bevor er abgelegt wird. Sie müssen nichts weiter tun.</p>`;
+      : html`<h1>Vielen Dank – gesendet!</h1><p class="notice" role="status">Ihr ${label} ist bei ${v.requesterDisplayName} angekommen. ${v.freeText ? "Es" : "Er"} wird noch kurz geprüft, bevor er abgelegt wird. Sie müssen nichts weiter tun.</p>`;
   const tail = receipt ? receiptBox(receipt) : html`<div class="card"><dl><dt>Referenz</dt><dd>${v.reference}</dd></dl></div>`;
   return layout("Gesendet", html`${body}${tail}<p>Sie können dieses Fenster jetzt schließen.</p>`, { view: v, step: 3 });
 }

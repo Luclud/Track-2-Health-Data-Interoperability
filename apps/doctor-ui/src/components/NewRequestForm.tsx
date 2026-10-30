@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Channel, DocumentRequestView, DocumentType, PatientSnapshot, RecipientWarning } from "@brieftaube/shared";
+import type { Channel, DocumentRequestView, PatientSnapshot, RecipientWarning } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
 import { ApiRequestError } from "../api/client.ts";
-import { CHANNEL_DE, DOC_TYPE_DE } from "../labels.ts";
+import { CHANNEL_DE } from "../labels.ts";
 import { formatDate } from "../format.ts";
 import { JuryQrModal } from "./JuryQrModal.tsx";
 
@@ -26,6 +26,7 @@ interface RecipientForm {
 const EMPTY_RECIPIENT: RecipientForm = { displayName: "", role: "", organization: "", isPhysician: true, channel: "email", address: "" };
 
 export const JURY_PATIENT_ID = "maria-beispiel";
+export const JURY_NOTE = "Unterschenkelfraktur links – Gerinnung vor OP";
 /** The judge types their own name; everything else is prefilled. */
 export const JURY_RECIPIENT: RecipientForm = { displayName: "", role: "Jury", organization: "AIM Austria Hackathon", isPhysician: true, channel: "email", address: "jury@demo.example" };
 
@@ -33,7 +34,6 @@ export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Pro
   const [query, setQuery] = useState("");
   const [patients, setPatients] = useState<PatientSnapshot[]>([]);
   const [patient, setPatient] = useState<PatientSnapshot | undefined>();
-  const [documentType, setDocumentType] = useState<DocumentType>("lab-result");
   const [note, setNote] = useState("");
   const [rcp, setRcp] = useState<RecipientForm>(EMPTY_RECIPIENT);
   const [warnings, setWarnings] = useState<RecipientWarning[]>([]);
@@ -47,7 +47,7 @@ export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Pro
 
   async function juryQuickFill() {
     setError(undefined);
-    setDocumentType("lab-result");
+    setNote(JURY_NOTE);
     setRcp(JURY_RECIPIENT);
     setConfirming(false);
     setSent(undefined);
@@ -94,11 +94,12 @@ export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Pro
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!patient) m.push("Patient:in");
+    if (!note.trim()) m.push("Was Sie brauchen");
     if (!rcp.displayName.trim()) m.push("Name der Empfänger:in");
     if (!rcp.organization.trim()) m.push("Einrichtung");
     if (!rcp.address.trim()) m.push(rcp.channel === "email" ? "E-Mail-Adresse" : "Mobilnummer");
     return m;
-  }, [patient, rcp]);
+  }, [patient, note, rcp]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,8 +117,7 @@ export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Pro
       }
       const res = await api.createRequest({
         patientId: patient.fhirId,
-        documentType,
-        note: note.trim() || undefined,
+        note: note.trim(),
         roomId,
         recipient: { ...rcp, displayName: rcp.displayName.trim(), address: rcp.address.trim(), role: rcp.role.trim(), organization: rcp.organization.trim() },
         acknowledgeWarnings: current.length > 0,
@@ -186,18 +186,14 @@ export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Pro
       </fieldset>
 
       <fieldset>
-        <legend>Dokument</legend>
-        <div className="segmented" role="radiogroup" aria-label="Dokumentart">
-          {(Object.keys(DOC_TYPE_DE) as DocumentType[]).map((t) => (
-            <label key={t} className={documentType === t ? "on" : ""}>
-              <input type="radio" name="documentType" value={t} checked={documentType === t} onChange={() => setDocumentType(t)} />
-              {DOC_TYPE_DE[t]}
-            </label>
-          ))}
-        </div>
-        <label htmlFor="note">Notiz <span className="muted">(optional)</span></label>
-        <textarea id="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Gerinnung vor OP am 28.10." />
-        <p className="hint">Die Notiz sieht die Empfänger:in erst nach erfolgreicher Identitätsprüfung – nie in E-Mail oder SMS.</p>
+        <legend>Was brauchen Sie?</legend>
+        <label htmlFor="note">Beschreiben Sie in eigenen Worten, wofür Sie Unterlagen brauchen</label>
+        <textarea id="note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Unterschenkelfraktur links – Gerinnung vor OP am 28.10." />
+        <p className="hint">
+          Sie sehen die Ablage der anderen Einrichtung nicht. Dort findet eine KI anhand Ihres Textes passende Dokumente – nur in der eigenen Ablage, lokal –
+          und die Empfänger:in entscheidet, was sie sendet. Nur dieses eine Dokument verlässt die Einrichtung.
+        </p>
+        <p className="hint">Ihr Text erscheint erst nach erfolgreicher Identitätsprüfung – nie in E-Mail oder SMS.</p>
       </fieldset>
 
       <fieldset>
