@@ -76,7 +76,7 @@ jobs:
 
       - name: Stack logs
         if: failure()
-        run: docker compose -f infra/docker-compose.yml --env-file .env logs --no-color --tail 300 > out/stack.log 2>&1 || true
+        run: mkdir -p out && docker compose -f infra/docker-compose.yml --env-file .env logs --no-color --tail 300 > out/stack.log 2>&1 || true
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
