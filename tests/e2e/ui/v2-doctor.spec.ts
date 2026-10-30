@@ -3,7 +3,7 @@
 import { expect, test } from "@playwright/test";
 import { isStackUp, startCore, type ExtraCore } from "../lib/core.ts";
 import { OutsidePerson } from "../lib/portal.ts";
-import { coreApi, isCoreUp, labRequest, linkIn, mailFor, poll } from "../lib/stack.ts";
+import { coreApi, isCoreUp, labRequest, linkIn, mailFor, poll, ROOM_ID } from "../lib/stack.ts";
 import { MERGED } from "../lib/v2-features.ts";
 import { fixture } from "../../fixtures/documents/index.ts";
 
@@ -56,7 +56,8 @@ test("filed lab values are shown German-formatted: INR 1,0, Thrombozyten 245 10â
   await eva.submitAnswer({ given: "Maria", family: "Beispiel", birthDate: "1961-03-12", content: fixture("scenario/lab-result-maria-beispiel").content, fileName: "befund.md" });
   await poll("filed", async () => ((await coreApi.detail(request.id)).request.status === "filed" ? true : undefined));
 
-  await page.goto("/widget/?mode=standalone");
+  // The request is in the seeded room (ROOM_ID), not the standalone default room.
+  await page.goto(`/widget/?mode=standalone&roomId=${encodeURIComponent(ROOM_ID)}`);
   await page.getByRole("tab", { name: "Anfragen" }).click();
   await page.getByRole("button", { name: new RegExp(request.reference) }).first().click();
   const main = page.locator("body");
