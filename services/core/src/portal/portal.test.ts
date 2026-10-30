@@ -145,6 +145,7 @@ describe("identity check", () => {
     expect(cb.statusCode).toBe(403);
     expect(cb.body).toContain("Wir konnten nicht bestätigen, dass Sie Dr. Eva Brandl sind");
     expect(cb.body).toContain("Dr. Lena Hofer wurde informiert");
+    expect(cb.body).toContain('href="/r/tok-eva/login"'); // the right person can still log in
     for (const leak of ["Maria", "1961", "Laborbefund"]) expect(cb.body).not.toContain(leak);
     expect(cb.body).not.toMatch(/Beispiel(?!stadt)/);
     const form = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
@@ -220,6 +221,8 @@ describe("answer", () => {
     const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ patientGiven: "<script>", patientFamily: "", patientBirthDate: "" }), jar) });
     expect(res.statusCode).toBe(400);
     expect(res.body).toContain("Bitte geben Sie den Nachnamen ein.");
+    expect(res.body).toContain('<a href="#patientFamily">');
+    expect(res.body).toContain('aria-describedby="patientFamily-error"');
     expect(res.body).toContain("Bitte laden Sie eine Datei hoch");
     expect(res.body).toContain('value="&lt;script&gt;"');
     expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
