@@ -123,7 +123,7 @@ export function createLlmClient(config: Config, fetchImpl: typeof fetch = fetch)
       if (!config.llmApiKey) throw new Error("LLM_PROVIDER=perplexity needs LLM_API_KEY");
       return new OpenAiCompatibleLlmClient(config.llmBaseUrl || "https://api.perplexity.ai", config.llmApiKey, config.llmModel || "sonar-pro", fetchImpl);
     case "openai-compatible":
-      if (!config.llmBaseUrl || !config.llmModel) throw new Error("LLM_PROVIDER=openai-compatible needs LLM_BASE_URL and LLM_MODEL");
+      if (!config.llmApiKey || !config.llmBaseUrl || !config.llmModel) throw new Error("LLM_PROVIDER=openai-compatible needs LLM_API_KEY, LLM_BASE_URL and LLM_MODEL");
       return new OpenAiCompatibleLlmClient(config.llmBaseUrl, config.llmApiKey, config.llmModel, fetchImpl);
     case "mock": {
       const file = join(config.dataDir, "llm-mock.json");

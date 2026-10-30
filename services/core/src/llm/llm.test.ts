@@ -40,6 +40,8 @@ describe("verifyLlmDocument", () => {
     ["other patient", (d: ReturnType<typeof good>) => void (d.patient.name.given = ["Max"]), "given name Max"],
     ["wrong birth date", (d: ReturnType<typeof good>) => void (d.patient.birthDate = "1960-01-01"), "birth date 1960-01-01 not in source"],
     ["date does not parse", (d: ReturnType<typeof good>) => void (d.sampleTaken = "gestern"), "sample time"],
+    ["invented report date", (d: ReturnType<typeof good>) => void (d.reported = "2031-05-05T10:00:00+02:00"), "report date 2031-05-05 not in source"],
+    ["missing report time", (d: ReturnType<typeof good>) => void ((d as { reported?: string }).reported = undefined), "report time"],
   ])("rejects %s", (_n, mutate, problem) => {
     const d = good();
     mutate(d);
@@ -88,6 +90,7 @@ describe("providers", () => {
     expect(createLlmClient({ ...base, llmProvider: "none" }).enabled).toBe(false);
     expect(createLlmClient({ ...base, llmProvider: "mock" }).enabled).toBe(true);
     expect(() => createLlmClient({ ...base, llmProvider: "anthropic", llmApiKey: "" })).toThrow(/LLM_API_KEY/);
+    expect(() => createLlmClient({ ...base, llmProvider: "openai-compatible", llmApiKey: "", llmBaseUrl: "http://x", llmModel: "m" })).toThrow(/LLM_API_KEY/);
   });
 });
 

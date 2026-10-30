@@ -50,6 +50,7 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
   if (!isObj(candidate)) return { ok: false, method: "llm", problems: ["LLM did not return an object"] };
   const folded = foldText(source);
   const nums = numbersIn(source);
+  const sourceDates = datesIn(source);
   const literal = (n: unknown, what: string) => {
     if (typeof n !== "number" || !Number.isFinite(n) || !nums.includes(n)) problems.push(`${what} ${String(n)} not in source`);
   };
@@ -65,7 +66,7 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
     if (!folded.includes(foldText(pname.given[0]!))) problems.push(`patient given name ${pname.given[0]} not in source`);
   }
   if (!birthDate) problems.push(`birth date ${String(p.birthDate)} does not parse`);
-  else if (!datesIn(source).has(birthDate)) problems.push(`birth date ${birthDate} not in source`);
+  else if (!sourceDates.has(birthDate)) problems.push(`birth date ${birthDate} not in source`);
   if (problems.length || !pname || !birthDate) return fail();
 
   const head = { title: s(candidate.title), organization: s(candidate.organization), patient: { name: pname, birthDate } };
@@ -92,8 +93,11 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
       });
     });
     const sampleTaken = isoDateTime(candidate.sampleTaken);
-    const reported = isoDateTime(candidate.reported) ?? sampleTaken;
+    const reported = isoDateTime(candidate.reported);
     if (!sampleTaken) problems.push(`sample time ${String(candidate.sampleTaken)} does not parse`);
+    else if (!sourceDates.has(sampleTaken.slice(0, 10))) problems.push(`sample date ${sampleTaken.slice(0, 10)} not in source`);
+    if (!reported) problems.push(`report time ${String(candidate.reported)} missing or does not parse`);
+    else if (!sourceDates.has(reported.slice(0, 10))) problems.push(`report date ${reported.slice(0, 10)} not in source`);
     if (problems.length || !sampleTaken || !reported) return fail();
     const validatedBy = person(candidate.validatedBy);
     doc = {
@@ -110,6 +114,7 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
     const st = isObj(candidate.stay) ? candidate.stay : undefined;
     const stay = st && isoDate(st.start) && isoDate(st.end) ? { start: s(st.start), end: s(st.end) } : undefined;
     if (st && !stay) problems.push("stay dates do not parse");
+    if (stay && (!sourceDates.has(stay.start) || !sourceDates.has(stay.end))) problems.push(`stay ${stay.start}..${stay.end} not in source`);
     if (problems.length) return fail();
     const writtenBy = person(candidate.writtenBy);
     const sentBy = person(candidate.sentBy);
