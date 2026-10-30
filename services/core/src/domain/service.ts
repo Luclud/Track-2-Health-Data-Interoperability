@@ -26,6 +26,7 @@ import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./mes
 import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
 import { filedSummary } from "./summary.ts";
+import { heldReview } from "./review.ts";
 import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
@@ -138,6 +139,10 @@ export class CoreRequestService implements Partial<RequestService> {
       if (summary) out.summary = summary;
     } catch {
       // Summary is display-only; an unreachable FHIR server must not break the detail view.
+    }
+    if (req.status === "held" && req.heldReason) {
+      const held = await this.held.heldAnswer(req.id);
+      if (held) out.review = heldReview(held.document, held.context.answer.content, req.heldReason, held.method ?? (req.heldReason === "ai-extracted" ? "llm" : "deterministic"));
     }
     return out;
   }
@@ -263,8 +268,8 @@ export class CoreRequestService implements Partial<RequestService> {
       answerSentAt: at,
       filedAt: at,
     };
-    if (parsed.method === "llm") return this.hold(r, "ai-extracted", doc, ctx);
-    if (registerApplies(r) && !register.listed) return this.hold(r, "not-in-register", doc, ctx);
+    if (parsed.method === "llm") return this.hold(r, "ai-extracted", doc, ctx, "llm");
+    if (registerApplies(r) && !register.listed) return this.hold(r, "not-in-register", doc, ctx, "deterministic");
     const filedResources = await this.file(r, doc, ctx);
     return { result: "filed", filedResources };
   }
@@ -278,9 +283,9 @@ export class CoreRequestService implements Partial<RequestService> {
   }
 
   /** Not filed automatically; Dr. Hofer decides in the widget (CORE-11). */
-  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", doc: ParsedDocument, ctx: FilingContext): Promise<AnswerOutcome> {
+  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", doc: ParsedDocument, ctx: FilingContext, method: "deterministic" | "llm"): Promise<AnswerOutcome> {
     const { request: _r, newUuid: _u, ...context } = ctx;
-    await this.held.saveHeld(r.id, { document: doc, context });
+    await this.held.saveHeld(r.id, { document: doc, context, method });
     r.status = "held";
     r.heldReason = reason;
     await this.d.repo.update(r);
