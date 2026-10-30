@@ -1,0 +1,10 @@
+{
+  "note": "Demo-Grenzwerte (Panikwerte). Jede Klinik legt ihre eigenen fest.",
+  "6301-6": { "high": 4.5, "unit": "{INR}" },
+  "14979-9": { "high": 100, "unit": "s" },
+  "777-3": { "low": 50, "high": 1000, "unit": "10*9/L" },
+  "3255-7": { "low": 1.0, "unit": "g/L" },
+  "718-7": { "low": 7, "unit": "g/dL" },
+  "2823-3": { "low": 2.8, "high": 6.2, "unit": "mmol/L" },
+  "2160-0": { "high": 4.0, "unit": "mg/dL" }
+}
