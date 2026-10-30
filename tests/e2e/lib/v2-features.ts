@@ -4,9 +4,9 @@ export const MERGED = {
   "V2-BOOT-1": true, // contract: juryLink, GET /api/ui-config
   "V2-CRIT-1": false, // TODO V2-CRIT-1: 🚨 alert + critical flag in summary
   "V2-CRIT-2": false, // TODO V2-CRIT-2: ✅ message html table, loinc in summary
-  "V2-AI-1": false, // TODO V2-AI-1: evidence for held answers
+  "V2-AI-1": true,
   "V2-JURY-1": true,
-  "V2-JURY-2": false, // TODO V2-JURY-2: demo buttons on the answer page (jury mode only)
+  "V2-JURY-2": true,
   "V2-RCPT-1": false, // TODO V2-RCPT-1: Eingangsbestätigung with SHA-256
   "V2-REM-1": false, // TODO V2-REM-1: reminders, link rotation, active expiry
   "V2-UI-1": false, // TODO V2-UI-1: German value formatting in the doctor UI
