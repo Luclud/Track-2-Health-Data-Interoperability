@@ -7,11 +7,13 @@ import "./styles.css";
 import { readEnv } from "./env.ts";
 import { createApi } from "./api/index.ts";
 import { NewRequestForm } from "./components/NewRequestForm.tsx";
+import { RequestsPanel } from "./components/RequestsPanel.tsx";
 
 function App() {
   const env = useMemo(() => readEnv(), []);
   const api = useMemo(() => createApi(env), [env]);
-  const [, setLastCreated] = useState<string | undefined>();
+  const [lastCreated, setLastCreated] = useState<string | undefined>();
+  const [tab, setTab] = useState<"new" | "list">("new");
   return (
     <div className={`app mode-${env.mode}`}>
       <header className="topbar">
@@ -20,8 +22,20 @@ function App() {
         <span className="muted sub">Dokumente sicher von außen anfordern</span>
         {env.mock && <span className="chip neutral">Demo-Daten</span>}
       </header>
+      <nav className="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "new"} className={tab === "new" ? "on" : ""} onClick={() => setTab("new")}>
+          Neue Anfrage
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "list"} className={tab === "list" ? "on" : ""} onClick={() => setTab("list")}>
+          Anfragen
+        </button>
+      </nav>
       <main className="panels">
-        <NewRequestForm api={api} roomId={env.roomId} onCreated={(r) => setLastCreated(r.id)} />
+        {tab === "new" ? (
+          <NewRequestForm api={api} roomId={env.roomId} onCreated={(r) => setLastCreated(r.id)} />
+        ) : (
+          <RequestsPanel api={api} roomId={env.roomId} refreshKey={lastCreated} />
+        )}
       </main>
     </div>
   );

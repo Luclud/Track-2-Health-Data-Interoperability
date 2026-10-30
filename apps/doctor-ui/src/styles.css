@@ -97,3 +97,32 @@ button.link { border: 0; background: none; color: var(--accent); text-decoration
   .card { padding: 12px; }
   .topbar .sub { display: none; }
 }
+
+.small { font-size: 0.82rem; }
+.req-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.req-list button { display: grid; gap: 4px; width: 100%; text-align: left; font: inherit; color: inherit; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; cursor: pointer; }
+.req-list button:hover { border-color: var(--accent); }
+.req-list li.problem button { border-left: 4px solid var(--alert); background: var(--alert-soft); }
+.req-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.req-head h2 { margin: 0; }
+.problem-text { color: var(--alert); font-size: 0.85rem; font-weight: 600; }
+.back { margin-bottom: 10px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 12px 0; font-size: 0.9rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.banner .actions { margin-top: 8px; }
+table.lab { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+table.lab th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); padding: 4px 6px; }
+table.lab td { padding: 5px 6px; border-bottom: 1px solid var(--line); }
+table.lab .num { text-align: right; white-space: nowrap; }
+table.lab tr.flag td { background: var(--warn-soft); }
+.flag-badge { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; padding: 0 5px; border-radius: 4px; color: #fff; }
+.flag-badge.H { background: var(--alert); }
+.flag-badge.L { background: var(--info); }
+.excerpt { margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); font-size: 0.88rem; white-space: pre-wrap; }
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 6px 0; position: relative; }
+.timeline li + li::before { content: ""; position: absolute; left: 13px; top: -6px; height: 12px; border-left: 2px solid var(--line); }
+.timeline .icon { font-size: 1.1rem; text-align: center; }
+.timeline .chip { margin-left: 6px; }
+.timeline li.outcome-failure b { color: var(--alert); }
