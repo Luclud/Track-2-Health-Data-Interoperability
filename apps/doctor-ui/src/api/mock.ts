@@ -331,14 +331,16 @@ export class MockApi implements Api {
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + REQUEST_TTL_HOURS * 3_600_000).toISOString(),
       status: "sent",
-      documentType: body.documentType,
+      documentType: body.documentType ?? "lab-result",
+      ...(body.documentType ? {} : { freeText: true }),
+      ...(body.note ? { note: body.note } : {}),
       patient,
       recipient: { ...body.recipient, name: { prefix, given: rest.slice(0, -1), family: rest.at(-1) ?? "" } },
       filedResources: [],
     };
     const rec: MockRecord = { view, audit: [entry(view, "request-sent", 0, `Request sent by ${body.recipient.channel}`, warnings.length ? "warning" : "success", LENA)] };
     this.records.push(rec);
-    const docLabel = body.documentType === "lab-result" ? "Laborbefund" : "Reha-Entlassungsbericht";
+    const docLabel = !body.documentType ? `„${body.note ?? ""}“` : body.documentType === "lab-result" ? "Laborbefund" : "Reha-Entlassungsbericht";
     this.chat.push({
       id: id(),
       roomId: body.roomId,

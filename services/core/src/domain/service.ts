@@ -28,6 +28,7 @@ import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
 import { filedOriginal, filedSummary } from "./summary.ts";
 import { heldReview } from "./review.ts";
+import { guessDocumentType } from "./interpret.ts";
 import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
@@ -93,7 +94,8 @@ export class CoreRequestService implements Partial<RequestService> {
       requester,
       roomId: body.roomId,
       patient: patientSnapshot(patient),
-      documentType: body.documentType,
+      documentType: body.documentType ?? guessDocumentType(body.note ?? ""),
+      ...(body.documentType ? {} : { freeText: true }),
       recipient: { ...body.recipient, address: body.recipient.address.trim(), name: recipientName },
       filedResources: [],
       fhirTaskId: taskId(reference),
@@ -124,7 +126,7 @@ export class CoreRequestService implements Partial<RequestService> {
       step: "request-sent",
       at: now.toISOString(),
       actor: requesterActor(requester),
-      what: `Request ${reference} for a ${request.documentType === "lab-result" ? "lab result" : "rehab discharge report"} sent by ${request.recipient.channel} to ${request.recipient.address}`,
+      what: `Request ${reference} for ${request.freeText ? "a document described in free text" : request.documentType === "lab-result" ? "a lab result" : "a rehab discharge report"} sent by ${request.recipient.channel} to ${request.recipient.address}`,
       outcome: "success",
       details: { channel: request.recipient.channel, providerMessageId: sent.providerMessageId, warnings: warnings.length },
     });
@@ -258,6 +260,11 @@ export class CoreRequestService implements Partial<RequestService> {
     const parsed = await this.read(content);
     const doc = parsed.ok ? parsed.document : undefined;
     if (!doc) return this.rejectAnswer(r, base, "unreadable", RESPONDER_MESSAGES.unreadable, chatUnreadable(r), `Document could not be read: ${parsed.problems.join("; ")}`, hash);
+    if (doc.kind !== r.documentType && r.freeText) {
+      // Free text: the sender chose what fits; the received document decides the type (and the register rule).
+      r.documentType = doc.kind;
+      await this.d.repo.update(r);
+    }
     if (doc.kind !== r.documentType)
       return this.rejectAnswer(r, base, "wrong-document-type", RESPONDER_MESSAGES["wrong-document-type"](r), chatWrongType(r, doc.kind), `Wrong document type: got ${doc.kind}, requested ${r.documentType}`, hash);
     const pc = checkPatient(r, answer, doc);

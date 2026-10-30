@@ -16,7 +16,7 @@ function baseTask(r: DocumentRequest, lastModified: string): Task & { id: string
     status: "requested",
     intent: "order",
     code: { coding: [{ system: SYSTEMS.taskCode, code: "fulfill" }] },
-    description: `Dokumentanforderung: ${DOCUMENT_TYPE_LABELS_DE[r.documentType]}`,
+    description: r.freeText ? "Dokumentanforderung (Freitext, Auswahl durch die Empfänger:in)" : `Dokumentanforderung: ${DOCUMENT_TYPE_LABELS_DE[r.documentType]}`,
     for: { reference: `Patient/${r.patient.fhirId}`, display: displayName(r.patient.name, false) },
     authoredOn: viennaInstant(r.createdAt),
     lastModified: viennaInstant(lastModified),
@@ -31,7 +31,7 @@ const input = (r: DocumentRequest): Task["input"] => [{ type: { text: "requested
 export function buildRequestedTask(r: DocumentRequest): Task & { id: string } {
   const t = baseTask(r, r.createdAt);
   if (r.note) t.note = [{ text: r.note }];
-  t.input = input(r);
+  if (!r.freeText) t.input = input(r);
   return t;
 }
 

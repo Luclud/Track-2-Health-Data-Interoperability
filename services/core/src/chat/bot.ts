@@ -21,6 +21,8 @@ const DOC_DE: Record<DocumentRequest["documentType"], string> = {
   "lab-result": "Laborbefund",
   "rehab-discharge-report": "Reha-Entlassungsbericht",
 };
+/** Free-text requests show what was asked for until a document arrived (then its real type). */
+const what = (r: DocumentRequest) => (r.freeText && r.status !== "filed" && r.status !== "held" ? `„${r.note ?? ""}“` : DOC_DE[r.documentType]);
 
 export type BotCommand = "status" | "help";
 
@@ -88,7 +90,7 @@ export function statusMessage(roomId: string, requests: DocumentRequest[], now =
         `${g.label}:`,
         ...g.items.map(
           (r) =>
-            `• ${r.reference} – ${DOC_DE[r.documentType]} für ${who(r)} an ${r.recipient.displayName}: ${STATUS_DE[r.status]}${extra(r)}`,
+            `• ${r.reference} – ${what(r)} für ${who(r)} an ${r.recipient.displayName}: ${STATUS_DE[r.status]}${extra(r)}`,
         ),
       ]),
     ].join("\n"),
@@ -101,7 +103,7 @@ export function statusMessage(roomId: string, requests: DocumentRequest[], now =
             g.items
               .map(
                 (r) =>
-                  `<li><b>${esc(r.reference)}</b> – ${esc(DOC_DE[r.documentType])} für <b>${esc(who(r))}</b>` +
+                  `<li><b>${esc(r.reference)}</b> – ${esc(what(r))} für <b>${esc(who(r))}</b>` +
                   ` an ${esc(r.recipient.displayName)}: ${esc(STATUS_DE[r.status] + extra(r))}</li>`,
               )
               .join("") +

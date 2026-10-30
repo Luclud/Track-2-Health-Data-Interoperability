@@ -13,6 +13,8 @@ export function toView(r: DocumentRequest): DocumentRequestView {
     recipient: r.recipient,
     filedResources: r.filedResources,
   };
+  if (r.freeText) v.freeText = true;
+  if (r.note) v.note = r.note;
   if (r.heldReason) v.heldReason = r.heldReason;
   if (r.lastProblem) v.lastProblem = r.lastProblem;
   if (r.reminderSentAt) v.reminderSentAt = r.reminderSentAt;
@@ -45,5 +47,6 @@ export function toAuthorizedView(r: DocumentRequest): AuthorizedRequestView {
     documentType: r.documentType,
   };
   if (r.note) v.note = r.note;
+  if (r.freeText) v.freeText = true;
   return v;
 }

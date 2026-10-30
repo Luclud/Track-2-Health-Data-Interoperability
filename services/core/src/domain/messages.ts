@@ -47,7 +47,7 @@ const CHANNEL_DE = { email: "E-Mail", sms: "SMS" } as const;
 
 export function chatRequestSent(r: DocumentRequest): string {
   const p = r.patient.name;
-  return `📨 Anfrage ${r.reference} an ${r.recipient.displayName} (${CHANNEL_DE[r.recipient.channel]}) gesendet – ${DOCUMENT_TYPE_LABELS_DE[r.documentType]} für ${[...p.given, p.family].join(" ")}.`;
+  return `📨 Anfrage ${r.reference} an ${r.recipient.displayName} (${CHANNEL_DE[r.recipient.channel]}) gesendet – ${r.freeText ? `„${r.note ?? ""}“` : DOCUMENT_TYPE_LABELS_DE[r.documentType]} für ${[...p.given, p.family].join(" ")}.`;
 }
 
 export function requesterActor(q: Requester) {
