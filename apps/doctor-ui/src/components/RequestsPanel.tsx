@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatValueDe, labNameDe, unitDisplay, type AuditEntry, type DocumentRequestView, type FiledSummary, type RequestDetailResponse } from "@brieftaube/shared";
+import { formatValueDe, labNameDe, unitDisplay, type AuditEntry, type DocumentRequestView, type FiledOriginal, type FiledSummary, type RequestDetailResponse } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
 import { CHANNEL_DE, DOC_TYPE_DE, HELD_DE, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
 import { formatDate, formatDateTime, formatTime } from "../format.ts";
@@ -165,6 +165,8 @@ function DetailBody({ d, busy, onDecide }: { d: RequestDetailResponse; busy: boo
 
       {d.summary && <Summary s={d.summary} />}
 
+      {d.original && <Original o={d.original} filed={r.filedResources} />}
+
       <h3>Verlauf</h3>
       <Timeline audit={d.audit} />
     </>
@@ -220,6 +222,47 @@ function Summary({ s }: { s: FiledSummary }) {
         </p>
       )}
       <blockquote className="excerpt">{s.excerpt}</blockquote>
+    </>
+  );
+}
+
+/** "DiagnosticReport · 4 × Observation · Provenance" */
+function fhirLine(refs: string[]): string {
+  const counts = new Map<string, number>();
+  for (const ref of refs) {
+    const type = ref.split("/")[0] ?? ref;
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  return [...counts].map(([type, n]) => (n > 1 ? `${n} × ${type}` : type)).join(" · ");
+}
+
+function Original({ o, filed }: { o: FiledOriginal; filed: string[] }) {
+  const lines = o.text.split(/\r?\n/);
+  const name = o.fileName ?? "dokument.md";
+  return (
+    <>
+      <h3>Originaldokument</h3>
+      <details className="original">
+        <summary>
+          📄 <b>{name}</b> <span className="muted small">· wie empfangen · SHA-256 {o.sha256.slice(0, 12)}…</span>
+        </summary>
+        <ol className="source">
+          {lines.map((text, i) => (
+            <li key={i}>
+              <span className="ln" aria-hidden>
+                {i + 1}
+              </span>
+              <code>{text || " "}</code>
+            </li>
+          ))}
+        </ol>
+        <div className="original-foot">
+          <span className="muted small">Abgelegt in FHIR: {fhirLine(filed)} · Original in {o.storedIn.split("/")[0]}</span>
+          <a className="link" download={name} href={`data:${o.contentType};charset=utf-8,${encodeURIComponent(o.text)}`}>
+            Original herunterladen
+          </a>
+        </div>
+      </details>
     </>
   );
 }

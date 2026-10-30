@@ -86,6 +86,19 @@ export interface RequestDetailResponse {
   summary?: FiledSummary;
   /** Only while status is "held": what was read, with evidence lines in the received document */
   review?: HeldReview;
+  /** Only when filed: the received document, read back from where it is stored in FHIR */
+  original?: FiledOriginal;
+}
+
+/** The received document as stored in FHIR (DiagnosticReport.presentedForm or DocumentReference.content) */
+export interface FiledOriginal {
+  /** FHIR resource that holds the attachment, e.g. "DiagnosticReport/abc" */
+  storedIn: string;
+  fileName?: string;
+  contentType: string;
+  text: string;
+  /** hex SHA-256 of text; same value as in the audit trail and the sender's receipt */
+  sha256: string;
 }
 
 /** 1-based line in HeldReview.sourceText that contains the value */
