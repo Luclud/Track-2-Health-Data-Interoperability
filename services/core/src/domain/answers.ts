@@ -36,6 +36,9 @@ export function chatUnreadable(r: DocumentRequest): string {
 export function chatHeld(r: DocumentRequest, reason: string): string {
   return `⏸ ${r.reference}: Antwort wartet auf Ihre Freigabe (Grund: ${reason})`;
 }
+export function chatHeldRejected(r: DocumentRequest, by: { displayName: string }): string {
+  return `✋ ${r.reference}: Zurückgehaltene Antwort von ${by.displayName} verworfen – NICHT abgelegt.`;
+}
 export const HELD_REASON_DE = {
   "not-in-register": "Absender nicht in der Ärzteliste gefunden",
   "ai-extracted": "KI-gelesen – bitte Werte prüfen",

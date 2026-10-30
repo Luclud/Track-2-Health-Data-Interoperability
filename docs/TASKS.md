@@ -40,7 +40,7 @@ Owns: `services/core/src/{domain,parser,fhir,llm,audit,api,db}/**`
 - [x] **CORE-9 (P1) LLM fallback.** `llm/`: providers `anthropic` (Messages API), `perplexity` and `openai-compatible` (chat completions with `response_format: json_schema`), `mock` (returns fixture JSON), `none`. JSON schema in `llm/schema.ts`. Verification per DESIGN.md §3; verified results → `held` (`ai-extracted`).
   - Tests with `mock`: hallucinated value is rejected; correct extraction becomes `held`.
 - [x] **CORE-10 (P1) Recipient check.** `checkRecipient`: uppercase, confusables, mixed scripts, unknown contact, name-not-in-address. `labor-kanaI.example` must warn.
-- [ ] **CORE-11 (P2) Held answers.** release/reject endpoints + service; release files exactly what was held (keep the parsed doc in the DB until decided).
+- [x] **CORE-11 (P2) Held answers.** release/reject endpoints + service; release files exactly what was held (keep the parsed doc in the DB until decided).
 - [ ] **CORE-12 (P3) Extras.** MedicationStatements from the rehab report; 2-line AI summary of the rehab report in the Matrix ✅ message when an LLM is configured (clearly marked "KI-Zusammenfassung").
 
 ## Lane A-TEST — Tester (account A)

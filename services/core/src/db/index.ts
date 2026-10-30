@@ -2,13 +2,43 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import type { DocumentRequest } from "@brieftaube/shared";
+import type { DocumentRequest, ParsedDocument } from "@brieftaube/shared";
+import type { FilingContext } from "../fhir/types.ts";
 import type { Config } from "../config.ts";
 import type { RequestRepository } from "../ports.ts";
 
 type Row = { json: string };
 
-export class SqliteRequestRepository implements RequestRepository {
+/** A held answer, kept until Dr. Hofer releases or rejects it (CORE-11). */
+export interface HeldAnswer {
+  document: ParsedDocument;
+  context: Omit<FilingContext, "request" | "newUuid">;
+}
+
+export interface HeldAnswerStore {
+  saveHeld(requestId: string, held: HeldAnswer): Promise<void>;
+  heldAnswer(requestId: string): Promise<HeldAnswer | undefined>;
+  deleteHeld(requestId: string): Promise<void>;
+}
+
+export class MemoryHeldAnswerStore implements HeldAnswerStore {
+  private readonly map = new Map<string, string>();
+  async saveHeld(id: string, held: HeldAnswer) {
+    this.map.set(id, JSON.stringify(held));
+  }
+  async heldAnswer(id: string) {
+    const j = this.map.get(id);
+    return j ? (JSON.parse(j) as HeldAnswer) : undefined;
+  }
+  async deleteHeld(id: string) {
+    this.map.delete(id);
+  }
+}
+
+export const isHeldAnswerStore = (x: unknown): x is HeldAnswerStore =>
+  typeof (x as HeldAnswerStore | undefined)?.saveHeld === "function";
+
+export class SqliteRequestRepository implements RequestRepository, HeldAnswerStore {
   private readonly db: Database.Database;
 
   /** `dataDir: ":memory:"` keeps everything in memory (tests). */
@@ -30,7 +60,11 @@ export class SqliteRequestRepository implements RequestRepository {
          json TEXT NOT NULL
        );
        CREATE INDEX IF NOT EXISTS requests_room ON requests(room_id);
-       CREATE INDEX IF NOT EXISTS requests_requester ON requests(requester);`,
+       CREATE INDEX IF NOT EXISTS requests_requester ON requests(requester);
+       CREATE TABLE IF NOT EXISTS held_answers (
+         request_id TEXT PRIMARY KEY,
+         json TEXT NOT NULL
+       );`,
     );
   }
 
@@ -55,6 +89,16 @@ export class SqliteRequestRepository implements RequestRepository {
   async listByRoom(roomId: string): Promise<DocumentRequest[]> {
     const rows = this.db.prepare("SELECT json FROM requests WHERE room_id = ? ORDER BY created_at DESC, rowid DESC").all(roomId) as Row[];
     return rows.map((r) => JSON.parse(r.json) as DocumentRequest);
+  }
+  async saveHeld(id: string, held: HeldAnswer): Promise<void> {
+    this.db.prepare("INSERT OR REPLACE INTO held_answers (request_id, json) VALUES (?, ?)").run(id, JSON.stringify(held));
+  }
+  async heldAnswer(id: string): Promise<HeldAnswer | undefined> {
+    const row = this.db.prepare("SELECT json FROM held_answers WHERE request_id = ?").get(id) as Row | undefined;
+    return row ? (JSON.parse(row.json) as HeldAnswer) : undefined;
+  }
+  async deleteHeld(id: string): Promise<void> {
+    this.db.prepare("DELETE FROM held_answers WHERE request_id = ?").run(id);
   }
   async knownAddresses(m: string): Promise<string[]> {
     const rows = this.db.prepare("SELECT json FROM requests WHERE requester = ?").all(m) as Row[];
