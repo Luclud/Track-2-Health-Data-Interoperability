@@ -177,7 +177,17 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
     msg(15, "info", "📨 Anfrage BT-R2HB an Sabine Koller (SMS) gesendet – Reha-Entlassungsbericht für Maria Beispiel."),
     msg(7, "success", "✅ BT-R2HB: Reha-Entlassungsbericht von Sabine Koller abgelegt (Aufenthalt 02.09.–23.09.2026). Identität: ID Austria (simuliert)"),
   ];
-  return { records: [filedRec, m1Rec, m3Rec, rehabRec], chat };
+  const waiting = mk("BT-W5RT", "sent", 67 * 60, { reminderSentAt: iso(19 * 60) });
+  const waitingRec: MockRecord = {
+    view: waiting,
+    audit: [entry(waiting, "request-sent", 67 * 60, "Request sent by email", "success", LENA), entry(waiting, "reminder-sent", 19 * 60, "Reminder sent with a new link", "success")],
+  };
+  const expired = mk("BT-X3PD", "expired", 80 * 60, { documentType: "rehab-discharge-report" });
+  const expiredRec: MockRecord = {
+    view: expired,
+    audit: [entry(expired, "request-sent", 80 * 60, "Request sent by email", "success", LENA)],
+  };
+  return { records: [filedRec, m1Rec, m3Rec, rehabRec, waitingRec, expiredRec], chat };
 }
 
 export class MockApi implements Api {

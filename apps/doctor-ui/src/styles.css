@@ -158,3 +158,20 @@ table.lab tr.flag td { background: var(--warn-soft); }
 @media (max-width: 899px) {
   .room { max-height: 45vh; }
 }
+
+.board-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.board-count { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 0.82rem; text-decoration: none; color: var(--ink); background: var(--bg); border: 1px solid var(--line); }
+.board-count b { font-size: 0.95rem; }
+.board-count.zero { opacity: 0.55; }
+.board-count.g-problem:not(.zero) { background: var(--alert-soft); border-color: #f3c7c3; color: var(--alert); }
+.board-count.g-review:not(.zero) { background: var(--warn-soft); border-color: #f0d9a8; color: var(--warn); }
+.board-count.g-waiting:not(.zero) { background: var(--info-soft); color: var(--info); }
+.board-count.g-filed:not(.zero) { background: var(--ok-soft); color: var(--ok); }
+.board-group { margin-top: 14px; scroll-margin-top: 8px; }
+.board-group h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.board-group h3 .count { font-size: 0.75rem; font-weight: 700; padding: 0 7px; border-radius: 999px; background: var(--line); color: var(--ink); }
+.board-group.g-problem h3 { color: var(--alert); }
+.board-group.g-problem h3 .count { background: var(--alert); color: #fff; }
+.board-group.g-review h3 { color: var(--warn); }
+.board-group.g-review h3 .count { background: var(--warn); color: #fff; }
+.waiting-line { color: var(--info); }

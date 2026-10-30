@@ -4,6 +4,7 @@ import type { Api } from "../api/client.ts";
 import { CHANNEL_DE, DOC_TYPE_DE, HELD_DE, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
 import { formatDate, formatDateTime, formatTime } from "../format.ts";
 import { usePolling } from "./usePolling.ts";
+import { expiryText, groupRequests } from "./board.ts";
 
 interface Props {
   api: Api;
@@ -25,31 +26,61 @@ export function RequestsPanel({ api, roomId, refreshKey }: Props) {
   if (selected) return <RequestDetail api={api} id={selected} onBack={() => setSelected(undefined)} />;
 
   const requests = list.data ?? [];
+  const groups = groupRequests(requests);
   return (
     <section className="card">
       <h2>Anfragen</h2>
       {list.error && <div className="banner alert">Anfragen konnten nicht geladen werden: {list.error}</div>}
       {!list.data && !list.error && <p className="muted">Laden …</p>}
       {list.data && requests.length === 0 && <p className="muted">Noch keine Anfragen in diesem Raum.</p>}
-      <ul className="req-list">
-        {requests.map((r) => (
-          <li key={r.id} className={r.lastProblem && r.status !== "filed" ? "problem" : ""}>
-            <button type="button" onClick={() => setSelected(r.id)}>
-              <div className="req-head">
-                <b>{r.reference}</b>
-                <StatusChip r={r} />
-              </div>
-              <div>
-                {DOC_TYPE_DE[r.documentType]} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
-              </div>
-              <div className="muted small">
-                an {r.recipient.displayName} ({CHANNEL_DE[r.recipient.channel]}) · {formatDateTime(r.createdAt)}
-              </div>
-              {r.lastProblem && r.status !== "filed" && <div className="problem-text">🛑 {PROBLEM_DE[r.lastProblem]}</div>}
-            </button>
-          </li>
+      {requests.length > 0 && (
+        <nav className="board-counts" aria-label="Übersicht">
+          {groups.map((g) => (
+            <a key={g.id} href={`#group-${g.id}`} className={`board-count g-${g.id} ${g.items.length === 0 ? "zero" : ""}`}>
+              <b>{g.items.length}</b> {g.label}
+            </a>
+          ))}
+        </nav>
+      )}
+      {groups
+        .filter((g) => g.items.length > 0)
+        .map((g) => (
+          <section key={g.id} id={`group-${g.id}`} className={`board-group g-${g.id}`} aria-label={g.label}>
+            <h3>
+              {g.label} <span className="count">{g.items.length}</span>
+            </h3>
+            <ul className="req-list">
+              {g.items.map((r) => (
+                <li key={r.id} className={r.lastProblem && r.status !== "filed" ? "problem" : ""}>
+                  <button type="button" onClick={() => setSelected(r.id)}>
+                    <div className="req-head">
+                      <b>{r.reference}</b>
+                      <StatusChip r={r} />
+                    </div>
+                    <div>
+                      {DOC_TYPE_DE[r.documentType]} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
+                    </div>
+                    <div className="muted small">
+                      an {r.recipient.displayName} ({CHANNEL_DE[r.recipient.channel]}) · {formatDateTime(r.createdAt)}
+                    </div>
+                    {g.id === "waiting" && (
+                      <div className="small waiting-line">
+                        ⏳ {expiryText(r.createdAt)}
+                        {r.reminderSentAt && (
+                          <span className="reminder" title={`Erinnerung gesendet ${formatDateTime(r.reminderSentAt)}`}>
+                            {" "}
+                            · 🔔 Erinnerung gesendet
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {r.lastProblem && r.status !== "filed" && <div className="problem-text">🛑 {PROBLEM_DE[r.lastProblem]}</div>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
     </section>
   );
 }
