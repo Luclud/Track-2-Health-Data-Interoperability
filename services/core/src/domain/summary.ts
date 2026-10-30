@@ -1,7 +1,9 @@
 // Filed summary for GET /api/requests/:id (lab values table / rehab excerpt), read back from the FHIR store.
 import type { DocumentRequest, FiledSummary } from "@brieftaube/shared";
 import type { DiagnosticReport, DocumentReference, Observation } from "fhir/r4.js";
+import { SYSTEMS } from "@brieftaube/shared";
 import type { FhirStore } from "../ports.ts";
+import { type CriticalLimits, criticalFor } from "./critical.ts";
 
 const EXCERPT_MAX = 300;
 
@@ -15,7 +17,7 @@ export function rehabExcerpt(markdown: string): string {
   return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX - 1).trimEnd()}…` : text;
 }
 
-export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise<FiledSummary | undefined> {
+export async function filedSummary(fhir: FhirStore, r: DocumentRequest, limits: CriticalLimits = {}): Promise<FiledSummary | undefined> {
   if (r.status !== "filed") return undefined;
   if (r.documentType === "lab-result") {
     const reportId = idOf(r.filedResources, "DiagnosticReport");
@@ -34,6 +36,10 @@ export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise
         unit: /^\{.*\}$/.test(q.unit ?? "") ? "" : (q.unit ?? ""),
         interpretation: code === "H" || code === "L" ? code : "N",
       };
+      const loinc = o.code.coding?.find((c) => c.system === SYSTEMS.loinc)?.code;
+      if (loinc) v.loinc = loinc;
+      const critical = criticalFor(limits, loinc, q.value, q.code);
+      if (critical) v.critical = critical;
       if (range?.low?.value !== undefined) v.low = range.low.value;
       if (range?.high?.value !== undefined) v.high = range.high.value;
       return [v];

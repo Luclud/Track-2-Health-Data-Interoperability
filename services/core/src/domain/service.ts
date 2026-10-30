@@ -18,7 +18,8 @@ import { buildProblemTask } from "../fhir/build-task.ts";
 import { createdReferences } from "../fhir/store.ts";
 import type { FilingContext } from "../fhir/types.ts";
 import type { ParsedDocument, ParseResult } from "@brieftaube/shared";
-import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
+import { type CriticalLimits, criticalForParsed, loadCriticalLimits } from "./critical.ts";
+import { HELD_REASON_DE, RESPONDER_MESSAGES, type LabRow, chatCritical, chatFiled, chatFiledHtml, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
 import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
@@ -38,11 +39,18 @@ export function patientSnapshot(p: Patient): PatientSnapshot {
   return snap;
 }
 
+const withCritical = <T>(c: T | undefined) => (c ? { critical: c } : {});
+
 export class CoreRequestService implements Partial<RequestService> {
   protected readonly held: HeldAnswerStore;
 
   constructor(protected readonly d: RequestServiceDeps) {
     this.held = d.held ?? (isHeldAnswerStore(d.repo) ? d.repo : new MemoryHeldAnswerStore());
+  }
+
+  private limits?: CriticalLimits;
+  protected criticalLimits(): CriticalLimits {
+    return (this.limits ??= loadCriticalLimits(this.d.config.criticalValuesFile, this.d.log));
   }
 
   protected now(): Date {
@@ -135,7 +143,7 @@ export class CoreRequestService implements Partial<RequestService> {
     const req = await this.expireIfDue(r);
     const out: RequestDetailResponse = { request: toView(req), audit: await this.d.audit.forRequest(id) };
     try {
-      const summary = await filedSummary(this.d.fhir, req);
+      const summary = await filedSummary(this.d.fhir, req, this.criticalLimits());
       if (summary) out.summary = summary;
     } catch {
       // Summary is display-only; an unreachable FHIR server must not break the detail view.
@@ -349,6 +357,8 @@ export class CoreRequestService implements Partial<RequestService> {
     delete r.heldReason;
     delete r.lastProblem;
     await this.d.repo.update(r);
+    const rows: LabRow[] = doc.kind === "lab-result" ? doc.values.map((value) => ({ value, ...withCritical(criticalForParsed(this.criticalLimits(), value)) })) : [];
+    const critical = rows.filter((x) => x.critical).map(({ value: v, critical: c }) => ({ loinc: v.loinc, testName: v.testName, value: v.value, unit: v.unitText, rule: c!.rule }));
     const count = (t: string) => filed.filter((x) => x.startsWith(`${t}/`));
     const main = count(doc.kind === "lab-result" ? "DiagnosticReport" : "DocumentReference")[0];
     const obs = count("Observation").length;
@@ -362,11 +372,12 @@ export class CoreRequestService implements Partial<RequestService> {
         : { kind: "system", id: "brieftaube", display: "Brieftaube" },
       what: `${releasedBy ? `Released by ${releasedBy.displayName}: filed` : "Filed"} ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
       outcome: "success",
-      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}) },
+      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}), ...(critical.length ? { criticalValues: critical } : {}) },
     });
     const summary = doc.kind === "rehab-discharge-report" ? await rehabSummary(this.d.llm, doc.markdown) : undefined;
     const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "");
-    await this.post({ roomId: r.roomId, body, severity: "success" });
+    if (critical.length) await this.post({ roomId: r.roomId, ...chatCritical(r, rows), severity: "alert" });
+    await this.post({ roomId: r.roomId, body, ...(doc.kind === "lab-result" ? { html: chatFiledHtml(r, rows, ctx.register) } : {}), severity: "success" });
     return filed;
   }
 

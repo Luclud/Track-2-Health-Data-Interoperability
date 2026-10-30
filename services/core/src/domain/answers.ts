@@ -1,8 +1,9 @@
 // CORE-5 helpers: patient / document-type checks and German texts for answers.
-import type { DocumentRequest, ParsedDocument, ParsedLabResult, ParsedRehabReport, PersonName, RegisterResult } from "@brieftaube/shared";
-import { DOCUMENT_TYPE_LABELS_DE } from "@brieftaube/shared";
+import type { DocumentRequest, ParsedDocument, ParsedLabResult, ParsedLabValue, ParsedRehabReport, PersonName, RegisterResult } from "@brieftaube/shared";
+import { DOCUMENT_TYPE_LABELS_DE, formatValueDe, labNameDe, unitDisplay } from "@brieftaube/shared";
 import { formatPersonName, samePerson } from "../parser/names.ts";
-import { interpretationCode } from "../fhir/util.ts";
+import { escapeXhtml, interpretationCode, quantity } from "../fhir/util.ts";
+import type { CriticalHit } from "./critical.ts";
 import type { AnswerInput } from "../ports.ts";
 
 export type PatientCheck = { ok: true } | { ok: false; source: "form" | "document"; name: PersonName; birthDate: string };
@@ -68,4 +69,49 @@ export function chatFiled(r: DocumentRequest, doc: ParsedDocument, register: Reg
   const d = doc as ParsedRehabReport;
   const stay = d.stay ? ` (Aufenthalt ${dmy(d.stay.start)}–${dmy(d.stay.end)})` : "";
   return `✅ ${r.reference}: Reha-Entlassungsbericht von ${r.recipient.displayName} abgelegt${stay}. ${id}`;
+}
+
+export type LabRow = { value: ParsedLabValue; critical?: CriticalHit };
+
+const rowName = (v: ParsedLabValue) => labNameDe(v.loinc, v.testName.replace(/\s*\(.*\)\s*$/, ""));
+const rowValue = (v: ParsedLabValue) => formatValueDe(v.value, v.referenceLow, v.referenceHigh);
+const rowUnit = (v: ParsedLabValue) => unitDisplay(quantity(v.value, v.unitText, v.loinc).code ?? v.unitText);
+function rowRange(v: ParsedLabValue): string {
+  // same precision for value and both bounds ("2,0–4,0" next to 3,1)
+  const lo = v.referenceLow, hi = v.referenceHigh;
+  if (lo !== undefined && hi !== undefined) return `${formatValueDe(lo, v.value, hi)}–${formatValueDe(hi, v.value, lo)}`;
+  if (hi !== undefined) return `< ${formatValueDe(hi, v.value)}`;
+  if (lo !== undefined) return `> ${formatValueDe(lo, v.value)}`;
+  return "";
+}
+function rowFlag(row: LabRow): string {
+  if (row.critical) return "🚨";
+  const i = interpretationCode(row.value.value, row.value.referenceLow, row.value.referenceHigh);
+  return i === "H" ? "↑" : i === "L" ? "↓" : "";
+}
+
+/** V2-CRIT-1: separate alert, posted before the ✅ message. One line per critical value. */
+export function chatCritical(r: DocumentRequest, rows: LabRow[]): { body: string; html: string } {
+  const lines = rows
+    .filter((x) => x.critical)
+    .map(({ value: v, critical }) => {
+      const unit = rowUnit(v);
+      return `🚨 Kritischer Wert – ${r.reference}: ${rowName(v)} ${rowValue(v)}${unit ? ` ${unit}` : ""} (kritisch ${critical!.rule}). Bitte zeitnah prüfen.`;
+    });
+  const id = r.requester.matrixUserId;
+  const mention = id.startsWith("@") ? `<a href="https://matrix.to/#/${escapeXhtml(id)}">${escapeXhtml(r.requester.displayName)}</a>: ` : "";
+  return { body: lines.join("\n"), html: mention + lines.map(escapeXhtml).join("<br>") };
+}
+
+/** V2-CRIT-2: HTML version of the ✅ message for a lab result (table Test · Wert · Einheit · Referenz · Flag). */
+export function chatFiledHtml(r: DocumentRequest, rows: LabRow[], register: RegisterResult): string {
+  const e = escapeXhtml;
+  const id = `Identität: ID Austria (simuliert)${register.checked ? (register.listed ? ", Ärzteliste ✓" : ", Ärzteliste ✗ (freigegeben)") : ""}`;
+  const cells = (xs: string[], tag: "td" | "th") => `<tr>${xs.map((x) => `<${tag}>${e(x)}</${tag}>`).join("")}</tr>`;
+  const body = rows.map((row) => cells([rowName(row.value), rowValue(row.value), rowUnit(row.value), rowRange(row.value), rowFlag(row)], "td")).join("");
+  return [
+    `✅ <b>${e(r.reference)}</b>: Laborbefund von ${e(r.recipient.displayName)} abgelegt.<br>`,
+    `<table><thead>${cells(["Test", "Wert", "Einheit", "Referenz", "Flag"], "th")}</thead><tbody>${body}</tbody></table>`,
+    e(id),
+  ].join("");
 }
