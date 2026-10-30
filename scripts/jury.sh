@@ -118,7 +118,8 @@ if [[ "$mode" == tunnel ]]; then
   tunnel_pid=$!
   public_base=""
   for _ in $(seq 1 60); do
-    public_base="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' "$tunnel_log" | head -1 || true)"
+    # Only the banner line ("|  https://<name>.trycloudflare.com  |"); error lines also contain https://api.trycloudflare.com
+    public_base="$({ grep -E '^[^|]*\|[[:space:]]+https://[a-z0-9-]+\.trycloudflare\.com' "$tunnel_log" || true; } | grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' | grep -v '^https://api\.' | head -1 || true)"
     [[ -n "$public_base" ]] && break
     kill -0 "$tunnel_pid" 2>/dev/null || break
     sleep 1

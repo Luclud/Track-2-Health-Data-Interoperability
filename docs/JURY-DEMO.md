@@ -15,10 +15,11 @@ Goal: a judge becomes the outside person **live, on their own phone**. Dr. Lena 
 ## During the pitch (≈ 3 min)
 
 1. "Wie heißen Sie?" — ask the judge's name.
-2. Widget → **Jury-Schnellauswahl** (patient Maria Beispiel, Laborbefund, e-mail `jury@demo.example`). Type the judge's name as recipient → **Anfrage senden**.
+2. Widget → **Jury-Schnellauswahl** (patient Maria Beispiel, Laborbefund, e-mail `jury@demo.example`). Type the judge's name as recipient, exactly as the judge will type it at the e-ID step (otherwise the name check blocks them, M2 path) → **Anfrage senden**.
 3. The QR modal appears. Note on screen: in real operation this link only goes out by e-mail/SMS. Judge scans it.
 4. Judge on the phone: e-ID (simulated) → **Andere Person** → types their own name and birth date → answer page → **Beispielbefund einsetzen (Demo)** → patient Maria Beispiel, 12.03.1961 → **senden**.
    - The judge is not in the physician register, so the answer is **held** ("Nicht in der Ärzteliste – bitte prüfen"): show the review with evidence, then **Freigeben**.
+     The review with evidence lines needs V2-AI-1 and V2-UI-1 merged. Before that, the held banner shows only the reason and the release/reject buttons.
 5. Element shows ✅ with the table (INR 1,0 · Thrombozyten 245 10⁹/L …) and a link to the FHIR record.
 6. Optional second judge: same flow, button **Beispiel: falsche Patientin (Demo)** → 🛑 mismatch, nothing filed.
 
