@@ -24,14 +24,15 @@ test.describe("jury mode QR (V2-JURY-1)", () => {
     await page.getByLabel("Name", { exact: true }).fill(`Dr. Jury ${Date.now().toString(36)}`);
     await page.getByRole("button", { name: "Anfrage senden" }).click();
     const confirm = page.getByRole("button", { name: "Trotzdem senden" });
-    if (await confirm.isVisible().catch(() => false)) await confirm.click();
-
     const modal = page.getByRole("dialog");
+    await expect(modal.or(confirm).first()).toBeVisible({ timeout: 15_000 });
+    if (await confirm.isVisible()) await confirm.click();
     await expect(modal).toBeVisible({ timeout: 15_000 });
     await expect(modal.locator("canvas, svg").first()).toBeVisible();
     await expect(modal).toContainText("Nur Jury-Modus: Im echten Betrieb geht dieser Link ausschließlich per E-Mail/SMS an die Empfängerin.");
-    const link = /http:\/\/localhost:3103\/r\/[A-Za-z0-9_-]{16,}/.exec((await modal.textContent()) ?? "")?.[0];
-    expect(link).toBeDefined();
+    const link = await modal.locator("a[href*='/r/']").getAttribute("href");
+    expect(link).toMatch(/^http:\/\/localhost:3103\/r\/[A-Za-z0-9_-]{16,}$/);
+    await expect(modal).toContainText(link!);
     const res = await fetch(link!);
     expect(res.status).toBe(200);
   });
@@ -56,6 +57,7 @@ test("filed lab values are shown German-formatted: INR 1,0, Thrombozyten 245 10�
   await poll("filed", async () => ((await coreApi.detail(request.id)).request.status === "filed" ? true : undefined));
 
   await page.goto("/widget/?mode=standalone");
+  await page.getByRole("tab", { name: "Anfragen" }).click();
   await page.getByRole("button", { name: new RegExp(request.reference) }).first().click();
   const main = page.locator("body");
   await expect(main).toContainText("Thrombozyten", { timeout: 15_000 });
