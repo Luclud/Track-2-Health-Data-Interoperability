@@ -49,6 +49,13 @@ describe("verifyLlmDocument", () => {
     expect(r.ok).toBe(false);
     expect(r.problems.join("; ")).toContain(problem);
   });
+  it("rehab: a stay written as one range phrase is backed by the source (V2-AI-3 finding)", () => {
+    const src = readFileSync("scenario/documents/rehab-report-maria-beispiel.md", "utf8");
+    const doc = { kind: "rehab-discharge-report", title: "x", organization: "x", patient: { name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" } };
+    expect(verifyLlmDocument(src, { ...doc, stay: { start: "2026-09-02", end: "2026-09-23" } }).ok).toBe(true);
+    expect(verifyLlmDocument(src, { ...doc, stay: { start: "2026-09-03", end: "2026-09-23" } }).ok).toBe(false);
+  });
+
   it("rehab: keeps the original markdown", () => {
     const src = "Reha Waldblick Entlassungsbericht für Maria Beispiel, geboren am 12. März 1961.";
     const r = verifyLlmDocument(src, { kind: "rehab-discharge-report", title: "x", organization: "Reha Waldblick", patient: { name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" }, markdown: "fake" });
