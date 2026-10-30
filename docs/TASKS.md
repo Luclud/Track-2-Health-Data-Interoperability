@@ -14,7 +14,7 @@ All lanes run in ONE Devin account under one coordinator (`docs/agents/coordinat
 
 ## BOOT — Coordinator, before anything else (≤ 20 min)
 
-- [ ] **BOOT-1 Install and go green.** Run `npm install`, `npm run typecheck`, `npm test`. Fix only trivial type errors in the skeleton (the initial commit was written without being able to run npm). Commit `package-lock.json`. Run `npm run validate:fhir` on `fhir-examples/`; if the golden examples have validator **errors**, fix the examples (keep the structure, change only what the validator complains about) and note every change in the PR and in `docs/FHIR-MAPPING.md`. Merge to `main`.
+- [x] **BOOT-1 Install and go green.** Run `npm install`, `npm run typecheck`, `npm test`. Fix only trivial type errors in the skeleton (the initial commit was written without being able to run npm). Commit `package-lock.json`. Run `npm run validate:fhir` on `fhir-examples/`; if the golden examples have validator **errors**, fix the examples (keep the structure, change only what the validator complains about) and note every change in the PR and in `docs/FHIR-MAPPING.md`. Merge to `main`.
   - Acceptance: `main` has `package-lock.json`; `npm run check` is green on `main`; CI workflow green.
   - Dev Matrix starts INFRA-1 in parallel but does **not** commit `package-lock.json` until BOOT-1 is merged.
 
