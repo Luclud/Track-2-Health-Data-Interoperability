@@ -26,8 +26,11 @@ export async function runSchedulerOnce(deps: SchedulerDeps, now: Date = new Date
   const out: TickResult = { reminded: [], expired: [] };
   const t = now.getTime();
   const remindBeforeMs = deps.config.reminderBeforeExpiryMinutes * 60_000;
-  for (const r of await deps.repo.listOpen()) {
+  for (const listed of await deps.repo.listOpen()) {
     try {
+      // Earlier requests in this tick await SMTP/Matrix; re-read so a request answered meanwhile is not overwritten.
+      const r = await deps.repo.byId(listed.id);
+      if (!r) continue;
       const expiresAt = Date.parse(r.expiresAt);
       if (EXPIRABLE.has(r.status) && expiresAt <= t) {
         await expire(deps, r);
@@ -37,7 +40,7 @@ export async function runSchedulerOnce(deps: SchedulerDeps, now: Date = new Date
         out.reminded.push(r.reference);
       }
     } catch (err) {
-      log(`scheduler: ${r.reference}: ${(err as Error).message}`);
+      log(`scheduler: ${listed.reference}: ${(err as Error).message}`);
     }
   }
   return out;
@@ -66,8 +69,10 @@ async function remind(deps: SchedulerDeps, r: DocumentRequest, now: Date): Promi
   const sender = r.recipient.channel === "email" ? deps.email : deps.sms;
   const sent = await sender.send(message!);
 
-  r.reminderSentAt = now.toISOString();
-  await deps.repo.update(r);
+  // The send awaited the network: write onto the current state, never back onto the snapshot.
+  const latest = (await deps.repo.byId(r.id)) ?? r;
+  latest.reminderSentAt = now.toISOString();
+  await deps.repo.update(latest);
   await deps.audit.record({
     requestId: r.id,
     requestReference: r.reference,

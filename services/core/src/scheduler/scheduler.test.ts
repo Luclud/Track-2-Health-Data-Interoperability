@@ -107,6 +107,50 @@ describe("scheduler (V2-REM-1)", () => {
     expect((await runSchedulerOnce(sched, hours(61))).reminded).toEqual([a.reference]);
   });
 
+  it("does not overwrite a request that changed during the tick", async () => {
+    const { deps, service, sched } = setup();
+    const a = (await service.createRequest(lena, labBody)).request;
+    const b = (await service.createRequest(lena, labBody)).request;
+    const email = deps.email as MemorySender;
+    const racing = {
+      ...sched,
+      email: {
+        send: async (m: Parameters<MemorySender["send"]>[0]) => {
+          // while A's reminder is in flight: B gets answered and filed, A gets opened
+          const [curA, curB] = [(await deps.repo.byId(a.id))!, (await deps.repo.byId(b.id))!];
+          if (curB.status !== "filed") {
+            await deps.repo.update({ ...curB, status: "filed", filedResources: ["DiagnosticReport/x"] });
+            await deps.repo.update({ ...curA, status: "opened" });
+          }
+          return email.send(m);
+        },
+      },
+    };
+    const tick = await runSchedulerOnce(racing, hours(60));
+    expect(tick.reminded).toEqual([a.reference]);
+    const [nowA, nowB] = [(await deps.repo.byId(a.id))!, (await deps.repo.byId(b.id))!];
+    expect(nowB).toMatchObject({ status: "filed", filedResources: ["DiagnosticReport/x"] });
+    expect(nowB.reminderSentAt).toBeUndefined();
+    expect(nowA).toMatchObject({ status: "opened", reminderSentAt: hours(60).toISOString() });
+    expect(await email.inbox()).toHaveLength(3); // 2 requests + 1 reminder
+    expect((await deps.audit.forRequest(b.id)).some((x) => x.step === "reminder-sent")).toBe(false);
+  });
+
+  it("does not expire a request that was filed after listOpen()", async () => {
+    const { deps, service, sched } = setup();
+    const { request } = await service.createRequest(lena, labBody);
+    const repo = Object.assign(Object.create(deps.repo) as typeof deps.repo, {
+      listOpen: async () => {
+        const list = await deps.repo.listOpen();
+        await deps.repo.update({ ...request, status: "filed" }); // answered right after the snapshot
+        return list;
+      },
+    });
+    const stale = { ...sched, repo };
+    expect((await runSchedulerOnce(stale, hours(72))).expired).toEqual([]);
+    expect((await deps.repo.byId(request.id))?.status).toBe("filed");
+  });
+
   it("startScheduler runs on the interval and is off for 0", async () => {
     vi.useFakeTimers();
     try {
