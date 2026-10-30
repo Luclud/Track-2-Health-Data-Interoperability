@@ -1,0 +1,44 @@
+{
+  "$note": "Rehab report from another clinic in German: German field labels (Patientin, Aufenthalt, Aufnahmegrund, Verfasst von, Übermittelt von) and other section headings (Diagnosen, Aufnahmebefund, Therapie und Verlauf, Procedere). Deterministic parser ok:true. Same stay as the scenario report. markdown = full file content (filled in by the loader).",
+  "ok": true,
+  "document": {
+    "kind": "rehab-discharge-report",
+    "title": "Rehaklinik Alpenblick: Entlassungsbericht",
+    "organization": "Rehaklinik Alpenblick",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "stay": {
+      "start": "2026-09-02",
+      "end": "2026-09-23"
+    },
+    "reason": "Anschlussheilverfahren nach Hüft-Totalendoprothese links am 18. August 2026, Klinikum Beispielstadt",
+    "writtenBy": {
+      "name": {
+        "given": [
+          "Thomas"
+        ],
+        "family": "Reiter",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "Ärztlicher Leiter"
+    },
+    "sentBy": {
+      "name": {
+        "given": [
+          "Julia"
+        ],
+        "family": "Hammer"
+      },
+      "role": "Entlassungsmanagement"
+    }
+  }
+}

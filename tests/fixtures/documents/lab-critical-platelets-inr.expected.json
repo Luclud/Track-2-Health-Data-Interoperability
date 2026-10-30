@@ -1,0 +1,78 @@
+{
+  "$note": "V2-CRIT-1: standard format, deterministic parser. Platelets 38 (critical < 50) and INR 5.2 (critical > 4.5) for Maria; aPTT 48 is high but not critical (critical > 100). expectedCritical = LOINC codes that must raise the 🚨 alert, in table order. Reported after the DST change, so +01:00.",
+  "ok": true,
+  "document": {
+    "kind": "lab-result",
+    "title": "Labor Kanalstraße: lab report",
+    "organization": "Labor Kanalstraße",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-10-27T07:45:00+01:00",
+    "reported": "2026-10-27T09:20:00+01:00",
+    "values": [
+      {
+        "testName": "INR (prothrombin time)",
+        "value": 5.2,
+        "unitText": "",
+        "referenceLow": 0.8,
+        "referenceHigh": 1.2,
+        "loinc": "6301-6"
+      },
+      {
+        "testName": "aPTT",
+        "value": 48,
+        "unitText": "s",
+        "referenceLow": 25,
+        "referenceHigh": 37,
+        "loinc": "14979-9"
+      },
+      {
+        "testName": "Platelets",
+        "value": 38,
+        "unitText": "10^9/L",
+        "referenceLow": 150,
+        "referenceHigh": 400,
+        "loinc": "777-3"
+      },
+      {
+        "testName": "Fibrinogen",
+        "value": 3.1,
+        "unitText": "g/L",
+        "referenceLow": 2,
+        "referenceHigh": 4,
+        "loinc": "3255-7"
+      }
+    ],
+    "conclusion": "Critical values: INR and platelets. Please check the patient promptly.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Eva"
+        ],
+        "family": "Brandl",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "lab physician"
+    }
+  },
+  "expectedInterpretation": [
+    "H",
+    "H",
+    "L",
+    "N"
+  ],
+  "expectedCritical": [
+    "6301-6",
+    "777-3"
+  ]
+}
