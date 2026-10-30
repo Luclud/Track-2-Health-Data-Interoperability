@@ -48,20 +48,20 @@ Owns: `tests/**`, `scripts/validate-fhir.ts`, `scripts/metrics.ts`, `.github/wor
 
 - [x] **TEST-1 (P0, first) Validation pipeline.** Make `npm run validate:fhir` robust (parse the validator's JSON output instead of text if easier), cache the jar in CI, fail on any error. Confirm golden examples pass (with BOOT-1).
 - [x] **TEST-2 (P0) Document fixtures.** `tests/fixtures/documents/`: ≥ 8 jury-like variants in the scenario format: another lab (other physician, other LOINC codes e.g. CRP 1988-5, Hb 718-7, creatinine 2160-0, with H/L values), German month names, missing "Requested by", CRLF line endings, extra blank lines, a rehab report from another clinic with a cross-month stay, a document for a different patient, a document that is not in the format at all (for the LLM path). Add `*.expected.json` with the expected parse result for each.
-- [ ] **TEST-3 (P0) API scenario e2e** (`tests/e2e/scenario.e2e.ts`, runs against the stack): request 1 by email (read link from Mailpit API), request 2 by SMS (`/api/dev/sms`), M1, M2, M3 exactly as in `scenario/misdelivery.md`, drive the mock eID over HTTP. Assert: FHIR server has 4 Observations with the right LOINC codes + DiagnosticReport + Provenance for Maria; DocumentReference for request 2; nothing for Max; audit has all six steps with who/what/when; email and SMS bodies pass the privacy guard; Matrix (or in-memory chat) got the messages.
-- [ ] **TEST-4 (P1) UI e2e** (Playwright, `tests/e2e/ui/`): outside person flow in a phone-sized viewport from the Mailpit message to "gesendet"; record the duration; doctor UI standalone mode creates a request.
-- [ ] **TEST-5 (P1) Metrics.** `scripts/metrics.ts` writes `docs/METRICS.md` with the four challenge metrics from real runs.
-- [ ] **TEST-6 (P1) CI e2e job.** GitHub Actions job that starts the compose stack, seeds, starts core, runs TEST-3. May be non-required if it is slow/flaky; document.
+- [x] **TEST-3 (P0) API scenario e2e** (`tests/e2e/scenario.e2e.ts`, runs against the stack): request 1 by email (read link from Mailpit API), request 2 by SMS (`/api/dev/sms`), M1, M2, M3 exactly as in `scenario/misdelivery.md`, drive the mock eID over HTTP. Assert: FHIR server has 4 Observations with the right LOINC codes + DiagnosticReport + Provenance for Maria; DocumentReference for request 2; nothing for Max; audit has all six steps with who/what/when; email and SMS bodies pass the privacy guard; Matrix (or in-memory chat) got the messages.
+- [x] **TEST-4 (P1) UI e2e** (Playwright, `tests/e2e/ui/`): outside person flow in a phone-sized viewport from the Mailpit message to "gesendet"; record the duration; doctor UI standalone mode creates a request.
+- [x] **TEST-5 (P1) Metrics.** `scripts/metrics.ts` writes `docs/METRICS.md` with the four challenge metrics from real runs.
+- [x] **TEST-6 (P1) CI e2e job.** GitHub Actions job that starts the compose stack, seeds, starts core, runs TEST-3. May be non-required if it is slow/flaky; document.
 
 ## Lane B-MATRIX — Dev Matrix + infra (account B)
 Owns: `infra/**`, `scripts/seed.ts`, `services/core/src/chat/**`, `apps/doctor-ui/**`
 
-- [ ] **INFRA-1 (P0, first) Stack up.** `npm run stack:up` brings Synapse, Element, HAPI, Mailpit up healthy on a fresh machine (mirror images). Fix `infra/synapse/*` as needed. Document gotchas in `docs/RUNBOOK.md`.
+- [x] **INFRA-1 (P0, first) Stack up.** `npm run stack:up` brings Synapse, Element, HAPI, Mailpit up healthy on a fresh machine (mirror images). Fix `infra/synapse/*` as needed. Document gotchas in `docs/RUNBOOK.md`.
 - [x] **INFRA-2 (P0) Seed.** Implement `scripts/seed.ts` per its header comment (idempotent). Writes `data/runtime.json`. Core reads `runtime.json` at startup if env vars are empty (add the read in `chat/` — do not edit `config.ts`; ask the coordinator if you must).
 - [x] **MATRIX-2 (P0) MatrixNotifier.** Post `m.room.message` with `body` + `format: org.matrix.custom.html` + `formatted_body` as the bot. Retries once. In `CHAT_MODE=memory` the in-memory notifier stays.
-- [ ] **UI-1 (P0) Doctor UI – new request.** React app: patient picker (`/api/patients`), document type, note, recipient (name, role, organization, physician yes/no, channel email/SMS, address). Calls `/api/recipient-check` on blur and shows warnings; sending with warnings needs a second click ("trotzdem senden"). German UI, clean clinical look, fits a narrow widget panel (≥ 320 px).
-- [ ] **UI-2 (P0) Doctor UI – requests list.** Status per request with the audit timeline (icons per step), filed summary (lab table with H/L highlighting / rehab excerpt), problems highlighted (identity mismatch, wrong patient). Polls every 3 s.
-- [ ] **UI-3 (P0) Two modes.** Widget mode: `matrix-widget-api` (`WidgetApi`, request OpenID credentials, send them as Bearer). Standalone mode (`?mode=standalone`): no Element; left = simulated room timeline from `/api/chat/messages`, right = the same panels; auth `X-Dev-User`. Must be usable for the demo website tomorrow without extra work.
+- [x] **UI-1 (P0) Doctor UI – new request.** React app: patient picker (`/api/patients`), document type, note, recipient (name, role, organization, physician yes/no, channel email/SMS, address). Calls `/api/recipient-check` on blur and shows warnings; sending with warnings needs a second click ("trotzdem senden"). German UI, clean clinical look, fits a narrow widget panel (≥ 320 px).
+- [x] **UI-2 (P0) Doctor UI – requests list.** Status per request with the audit timeline (icons per step), filed summary (lab table with H/L highlighting / rehab excerpt), problems highlighted (identity mismatch, wrong patient). Polls every 3 s.
+- [x] **UI-3 (P0) Two modes.** Widget mode: `matrix-widget-api` (`WidgetApi`, request OpenID credentials, send them as Bearer). Standalone mode (`?mode=standalone`): no Element; left = simulated room timeline from `/api/chat/messages`, right = the same panels; auth `X-Dev-User`. Must be usable for the demo website tomorrow without extra work.
 - [x] **UI-4 (P1) Element integration check.** After seed, logging into Element as lena.hofer shows the room with the widget pinned, no extra clicks except a possible one-time widget permission. Screenshot in `docs/screenshots/`.
 - [x] **INFRA-3 (P2) One-command demo.** `scripts/demo.sh`: stack up → seed → ui build → start core with `CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix`; prints all URLs.
 - [x] **BOT-1 (P3)** `!brieftaube status` command in the room lists open requests.
@@ -82,7 +82,7 @@ Owns: `services/core/src/{portal,eid,notify,register}/**` (except `notify/privac
 
 ## Final integration — coordinator, from ~07:00
 
-- [ ] **INT-1** On `main`: full stack, seed, `npm run e2e` green for R1, R2, M1–M3.
-- [ ] **INT-2** `npm run metrics` → `docs/METRICS.md`.
-- [ ] **INT-3** README "How to run" verified on a clean clone.
+- [x] **INT-1** On `main`: full stack, seed, `npm run e2e` green for R1, R2, M1–M3.
+- [x] **INT-2** `npm run metrics` → `docs/METRICS.md`.
+- [x] **INT-3** README "How to run" verified on a clean clone.
 - [ ] **INT-4** `docs/MORNING-REPORT.md`: what works, what doesn't, known issues, exact demo commands.
