@@ -75,7 +75,7 @@ async function postJson(fetchImpl: typeof fetch, url: string, headers: Record<st
   }
 }
 
-/** Anthropic Messages API; structured output via a forced tool call. */
+/** Anthropic Messages API; structured output via a tool call (text JSON as fallback). */
 export class AnthropicLlmClient implements LlmClient {
   readonly enabled = true;
   constructor(
@@ -89,10 +89,11 @@ export class AnthropicLlmClient implements LlmClient {
     const data = (await postJson(this.fetchImpl, `${this.baseUrl.replace(/\/$/, "")}/v1/messages`, { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" }, {
       model: this.model,
       max_tokens: 4096,
-      system: p.system,
+      // Newer models reject a forced tool_choice ("tool"/"any"), so ask for the tool call in the prompt instead.
+      system: `${p.system}\n\nReturn the result only by calling the tool \`${p.schemaName}\`.`,
       messages: [{ role: "user", content: p.user }],
       tools: [{ name: p.schemaName, description: "Return the extracted data", input_schema: p.jsonSchema }],
-      tool_choice: { type: "tool", name: p.schemaName },
+      tool_choice: { type: "auto" },
     }, this.http)) as { content?: { type: string; input?: unknown; text?: string }[] };
     const tool = data.content?.find((c) => c.type === "tool_use");
     if (tool?.input !== undefined) return tool.input;

@@ -12,7 +12,7 @@ const DOCS = new URL("../../../../scenario/documents/", import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, DOCS), "utf8");
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-interface DemoPatient { name: Pick<PersonName, "given" | "family">; birthDate: string }
+export interface DemoPatient { name: Pick<PersonName, "given" | "family">; birthDate: string }
 const MAX: DemoPatient = { name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" };
 const MARIA: DemoPatient = { name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" };
 
@@ -21,12 +21,12 @@ const samePatient = (a: DemoPatient, b: DemoPatient) =>
   fold(a.name.family) === fold(b.name.family) && fold(a.name.given[0] ?? "") === fold(b.name.given[0] ?? "") && a.birthDate === b.birthDate;
 
 /** "1961-03-12" -> "12 March 1961" (the scenario documents use English dates) */
-function englishDate(iso: string): string {
+export function englishDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return y && m && d ? `${d} ${MONTHS[m - 1]} ${y}` : iso;
 }
 
-function withPatient(doc: string, p: DemoPatient): string {
+export function withPatient(doc: string, p: DemoPatient): string {
   return doc.replace(/^Patient:.*$/m, `Patient: ${[...p.name.given, p.name.family].join(" ")}, born ${englishDate(p.birthDate)}`);
 }
 
