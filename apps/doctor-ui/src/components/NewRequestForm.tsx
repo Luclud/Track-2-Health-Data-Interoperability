@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Channel, DocumentRequestView, DocumentType, PatientSnapshot, RecipientWarning } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
 import { ApiRequestError } from "../api/client.ts";
 import { CHANNEL_DE, DOC_TYPE_DE } from "../labels.ts";
 import { formatDate } from "../format.ts";
+import { JuryQrModal } from "./JuryQrModal.tsx";
 
 interface Props {
   api: Api;
   roomId: string;
   onCreated: (r: DocumentRequestView) => void;
+  /** GET /api/ui-config juryMode: show the Jury-Schnellauswahl and the QR modal */
+  juryMode?: boolean;
 }
 
 interface RecipientForm {
@@ -22,7 +25,11 @@ interface RecipientForm {
 
 const EMPTY_RECIPIENT: RecipientForm = { displayName: "", role: "", organization: "", isPhysician: true, channel: "email", address: "" };
 
-export function NewRequestForm({ api, roomId, onCreated }: Props) {
+export const JURY_PATIENT_ID = "maria-beispiel";
+/** The judge types their own name; everything else is prefilled. */
+export const JURY_RECIPIENT: RecipientForm = { displayName: "", role: "Jury", organization: "AIM Austria Hackathon", isPhysician: true, channel: "email", address: "jury@demo.example" };
+
+export function NewRequestForm({ api, roomId, onCreated, juryMode = false }: Props) {
   const [query, setQuery] = useState("");
   const [patients, setPatients] = useState<PatientSnapshot[]>([]);
   const [patient, setPatient] = useState<PatientSnapshot | undefined>();
@@ -35,6 +42,24 @@ export function NewRequestForm({ api, roomId, onCreated }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [sent, setSent] = useState<DocumentRequestView | undefined>();
+  const [jury, setJury] = useState<{ link: string; reference: string; name: string } | undefined>();
+  const nameInput = useRef<HTMLInputElement>(null);
+
+  async function juryQuickFill() {
+    setError(undefined);
+    setDocumentType("lab-result");
+    setRcp(JURY_RECIPIENT);
+    setConfirming(false);
+    setSent(undefined);
+    nameInput.current?.focus();
+    try {
+      const maria = (await api.patients("Beispiel")).find((p) => p.fhirId === JURY_PATIENT_ID);
+      if (maria) setPatient(maria);
+      else setError("Patientin Maria Beispiel nicht gefunden (Seed ausgeführt?).");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +123,7 @@ export function NewRequestForm({ api, roomId, onCreated }: Props) {
         acknowledgeWarnings: current.length > 0,
       });
       setSent(res.request);
+      if (res.juryLink) setJury({ link: res.juryLink, reference: res.request.reference, name: res.request.recipient.displayName });
       onCreated(res.request);
       setRcp(EMPTY_RECIPIENT);
       setNote("");
@@ -112,7 +138,15 @@ export function NewRequestForm({ api, roomId, onCreated }: Props) {
 
   return (
     <form className="card form" onSubmit={submit} noValidate>
-      <h2>Dokument anfordern</h2>
+      <div className="form-head">
+        <h2>Dokument anfordern</h2>
+        {juryMode && (
+          <button type="button" className="secondary jury-btn" onClick={() => void juryQuickFill()}>
+            Jury-Schnellauswahl
+          </button>
+        )}
+      </div>
+      {jury && <JuryQrModal link={jury.link} reference={jury.reference} recipientName={jury.name} onClose={() => setJury(undefined)} />}
 
       {sent && (
         <div className="banner success" role="status">
@@ -169,7 +203,7 @@ export function NewRequestForm({ api, roomId, onCreated }: Props) {
       <fieldset>
         <legend>Empfänger:in</legend>
         <label htmlFor="rcp-name">Name</label>
-        <input id="rcp-name" value={rcp.displayName} onChange={(e) => update("displayName", e.target.value)} onBlur={() => void runCheck().catch(() => undefined)} placeholder="Dr. Eva Brandl" />
+        <input id="rcp-name" ref={nameInput} value={rcp.displayName} onChange={(e) => update("displayName", e.target.value)} onBlur={() => void runCheck().catch(() => undefined)} placeholder="Dr. Eva Brandl" />
         <div className="row">
           <div>
             <label htmlFor="rcp-role">Funktion</label>

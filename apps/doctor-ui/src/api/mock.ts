@@ -16,6 +16,7 @@ import type {
   RecipientCheckResponse,
   RecipientWarning,
   RequestDetailResponse,
+  UiConfigResponse,
 } from "@brieftaube/shared";
 import type { Api } from "./client.ts";
 import { ApiRequestError } from "./client.ts";
@@ -232,10 +233,19 @@ export class MockApi implements Api {
   private records: MockRecord[];
   private chat: ChatMessageView[];
 
-  constructor(roomId: string, withSamples = true) {
+  constructor(
+    roomId: string,
+    withSamples = true,
+    private readonly juryMode = false,
+  ) {
     const s = withSamples ? sampleData(roomId) : { records: [], chat: [] };
     this.records = s.records;
     this.chat = s.chat;
+  }
+
+  async uiConfig(): Promise<UiConfigResponse> {
+    await delay();
+    return { juryMode: this.juryMode, llmEnabled: false };
   }
 
   async me(): Promise<MeResponse> {
@@ -287,7 +297,7 @@ export class MockApi implements Api {
       severity: "info",
       body: `📨 Anfrage ${ref} an ${body.recipient.displayName} (${body.recipient.channel === "email" ? "E-Mail" : "SMS"}) gesendet – ${docLabel} für ${patient.name.given.join(" ")} ${patient.name.family}.`,
     });
-    return { request: view, warnings };
+    return { request: view, warnings, ...(this.juryMode ? { juryLink: `${window.location.origin}/r/mock-${ref.toLowerCase()}-demo-token` } : {}) };
   }
 
   async listRequests(): Promise<DocumentRequestView[]> {
