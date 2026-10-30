@@ -65,6 +65,8 @@ export interface DocumentRequestView {
   id: string;
   reference: string;
   createdAt: string;
+  /** Current deadline of the link (moves when a reminder extends it). Always set by the core. */
+  expiresAt?: string;
   status: RequestStatus;
   documentType: DocumentType;
   patient: PatientSnapshot;
