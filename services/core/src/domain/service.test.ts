@@ -1,24 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { CreateRequestBody } from "@brieftaube/shared";
 import type { Task as FhirTask } from "fhir/r4.js";
 import { findPrivacyLeaks } from "../notify/privacy.ts";
 import type { MemorySender } from "../notify/index.ts";
-import { lena, testDeps } from "./testkit.ts";
+import { labBody, lena, rehabBody, testDeps } from "./testkit.ts";
 
-
-export const labBody: CreateRequestBody = {
-  patientId: "maria-beispiel",
-  documentType: "lab-result",
-  note: "Aktuelle Gerinnungswerte vor geplantem Eingriff",
-  roomId: "!room:klinikum.example",
-  recipient: { displayName: "Dr. Eva Brandl", role: "Laborärztin", organization: "Labor Kanalstraße", isPhysician: true, channel: "email", address: "eva.brandl@labor-kanal.example" },
-};
-export const rehabBody: CreateRequestBody = {
-  patientId: "maria-beispiel",
-  documentType: "rehab-discharge-report",
-  roomId: "!room:klinikum.example",
-  recipient: { displayName: "Stefan Kern", role: "Entlassungsmanagement", organization: "Reha Waldblick", isPhysician: false, channel: "sms", address: "+43 660 000 0101" },
-};
 
 const tokenFrom = (text: string) => /\/r\/([A-Za-z0-9_-]+)/.exec(text)![1]!;
 

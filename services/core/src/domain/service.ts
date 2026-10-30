@@ -1,17 +1,18 @@
 // RequestService core (CORE-3): create request, open link, list, detail. Identity (CORE-4), answers (CORE-5)
 // and held decisions (CORE-11) are added in their own modules.
 import { randomUUID } from "node:crypto";
-import type { CreateRequestBody, DocumentRequest, PatientSnapshot, RecipientWarning, Requester, RequestDetailResponse } from "@brieftaube/shared";
+import type { CreateRequestBody, DocumentRequest, IdentityCheckOutcome, PatientSnapshot, RecipientWarning, Requester, RequestDetailResponse, VerifiedIdentity } from "@brieftaube/shared";
 import type { Patient } from "fhir/r4.js";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
-import type { ChatNotifier, OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
+import type { AuthorizedRequestView, ChatNotifier, OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
 import { newReference, newToken, sha256 } from "./tokens.ts";
-import { toPublicView, toView } from "./views.ts";
+import { toAuthorizedView, toPublicView, toView } from "./views.ts";
+import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
   const n = p.name?.find((x) => x.use === "official") ?? p.name?.[0];
@@ -120,6 +121,61 @@ export class CoreRequestService implements Partial<RequestService> {
       details: { ...(meta.ipHash ? { ipHash: meta.ipHash } : {}), ...(meta.userAgent ? { userAgent: meta.userAgent } : {}), status: r.status },
     });
     return { requestId: r.id, view: toPublicView(r) };
+  }
+
+  async completeIdentityCheck(token: string, identity: VerifiedIdentity, meta: RequestMeta): Promise<IdentityCheckOutcome & { view?: AuthorizedRequestView }> {
+    const found = await this.byToken(token);
+    if (!found) throw new DomainError("request-not-found", "Unknown or invalid link", 404);
+    const r = await this.expireIfDue(found);
+    if (r.status === "expired" || r.status === "cancelled") return { ok: false, reason: "expired", identity };
+    if (r.status === "filed" || r.status === "held") return { ok: false, reason: "already-answered", identity };
+
+    const at = this.now().toISOString();
+    const actor = { kind: "outside-person" as const, id: identity.subject, display: identityDisplay(identity) };
+    const base = { requestId: r.id, requestReference: r.reference, at };
+    const metaDetails = { ...(meta.ipHash ? { ipHash: meta.ipHash } : {}), ...(meta.userAgent ? { userAgent: meta.userAgent } : {}) };
+    const decision = decideIdentity(r, identity);
+
+    if (!decision.ok) {
+      const who = identityDisplay(identity);
+      await this.d.audit.record({
+        ...base,
+        step: "identity-checked",
+        actor: decision.reason === "name-mismatch" ? { ...actor, display: `${who} (not the recipient)` } : actor,
+        what: decision.reason === "name-mismatch" ? `${who} is not ${r.recipient.displayName}` : `Level of assurance ${identity.levelOfAssurance} is too low (high required)`,
+        outcome: "failure",
+        details: { reason: decision.reason, provider: identity.provider, levelOfAssurance: identity.levelOfAssurance, ...metaDetails },
+      });
+      if (decision.reason === "name-mismatch") {
+        if (r.status !== "verified" && r.status !== "rejected") r.status = "identity-failed";
+        r.lastProblem = "identity-mismatch";
+        await this.d.repo.update(r);
+        await this.d.audit.record({
+          ...base,
+          step: "misdelivery-caught",
+          actor: { ...actor, display: `${who} (not the recipient)` },
+          what: `Identity mismatch: verified person '${who}' is not the named recipient '${r.recipient.displayName}'. Nothing was shown.`,
+          outcome: "failure",
+          details: { misdelivery: "identity-mismatch", ...metaDetails },
+        });
+        await this.post({ roomId: r.roomId, body: chatIdentityMismatch(r, identity), severity: "warning" });
+      }
+      return { ok: false, reason: decision.reason, identity };
+    }
+
+    const register = await lookupRegister(r, identity, this.d.register);
+    const registerText = !register.checked ? "register: not applicable" : register.listed ? `register: listed (${register.registrationNumber ?? "?"})` : "register: not listed";
+    r.status = "verified";
+    await this.d.repo.update(r);
+    await this.d.audit.record({
+      ...base,
+      step: "identity-checked",
+      actor,
+      what: `Identity of ${actor.display} confirmed via ID Austria (simulated), LoA ${identity.levelOfAssurance}; ${registerText}`,
+      outcome: register.checked && !register.listed ? "warning" : "success",
+      details: { policy: decision.policy, provider: identity.provider, register, ...metaDetails },
+    });
+    return { ok: true, identity, register, policy: decision.policy, view: toAuthorizedView(r) };
   }
 
   protected async byToken(token: string): Promise<DocumentRequest | undefined> {

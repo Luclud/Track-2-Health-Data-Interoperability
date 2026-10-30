@@ -1,7 +1,7 @@
 // Test helpers: a fully in-memory RequestService with the scenario patient seeded. No Docker, no network.
 import { readFileSync } from "node:fs";
 import type { Patient } from "fhir/r4.js";
-import type { RegisterResult, Requester, VerifiedIdentity } from "@brieftaube/shared";
+import type { CreateRequestBody, RegisterResult, Requester, VerifiedIdentity } from "@brieftaube/shared";
 import { config } from "../config.ts";
 import { InMemoryChatNotifier } from "../chat/index.ts";
 import { MemorySender } from "../notify/index.ts";
@@ -74,3 +74,18 @@ export function testDeps(overrides: Partial<RequestServiceDeps> = {}) {
   };
   return { deps, service: createRequestService(deps) };
 }
+
+export const labBody: CreateRequestBody = {
+  patientId: "maria-beispiel",
+  documentType: "lab-result",
+  note: "Aktuelle Gerinnungswerte vor geplantem Eingriff",
+  roomId: "!room:klinikum.example",
+  recipient: { displayName: "Dr. Eva Brandl", role: "Laborärztin", organization: "Labor Kanalstraße", isPhysician: true, channel: "email", address: "eva.brandl@labor-kanal.example" },
+};
+export const rehabBody: CreateRequestBody = {
+  patientId: "maria-beispiel",
+  documentType: "rehab-discharge-report",
+  roomId: "!room:klinikum.example",
+  recipient: { displayName: "Stefan Kern", role: "Entlassungsmanagement", organization: "Reha Waldblick", isPhysician: false, channel: "sms", address: "+43 660 000 0101" },
+};
+

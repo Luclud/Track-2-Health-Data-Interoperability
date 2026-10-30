@@ -37,7 +37,7 @@ export function createRequestService(deps: RequestServiceDeps): RequestService {
     listForRoom: s.listForRoom.bind(s),
     detail: s.detail.bind(s),
     openLink: s.openLink.bind(s),
-    completeIdentityCheck: todo("completeIdentityCheck", "CORE-4"),
+    completeIdentityCheck: s.completeIdentityCheck.bind(s),
     submitAnswer: todo("submitAnswer", "CORE-5"),
     release: todo("release", "CORE-11"),
     reject: todo("reject", "CORE-11"),
