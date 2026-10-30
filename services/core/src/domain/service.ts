@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { CreateRequestBody, DocumentRequest, IdentityCheckOutcome, PatientSnapshot, RecipientWarning, Requester, RequestDetailResponse, VerifiedIdentity } from "@brieftaube/shared";
 import type { Organization, Patient, Practitioner, PractitionerRole } from "fhir/r4.js";
 import { checkRecipientAddress } from "./recipient.ts";
+import { llmParse } from "../llm/index.ts";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
@@ -13,7 +14,7 @@ import { buildRehabBundle } from "../fhir/build-rehab.ts";
 import { buildProblemTask } from "../fhir/build-task.ts";
 import { createdReferences } from "../fhir/store.ts";
 import type { FilingContext } from "../fhir/types.ts";
-import type { ParsedDocument } from "@brieftaube/shared";
+import type { ParsedDocument, ParseResult } from "@brieftaube/shared";
 import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
 import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
@@ -224,7 +225,7 @@ export class CoreRequestService implements Partial<RequestService> {
       details: { fileName, size: Buffer.byteLength(content, "utf8"), sha256: hash, ...(meta.ipHash ? { ipHash: meta.ipHash } : {}) },
     });
 
-    const parsed = this.d.parser.parse(content);
+    const parsed = await this.read(content);
     const doc = parsed.ok ? parsed.document : undefined;
     if (!doc) return this.rejectAnswer(r, base, "unreadable", RESPONDER_MESSAGES.unreadable, chatUnreadable(r), `Document could not be read: ${parsed.problems.join("; ")}`, hash);
     if (doc.kind !== r.documentType)
@@ -247,15 +248,27 @@ export class CoreRequestService implements Partial<RequestService> {
       answerSentAt: at,
       filedAt: at,
     };
-    if (registerApplies(r) && !register.listed) {
-      r.status = "held";
-      r.heldReason = "not-in-register";
-      await this.d.repo.update(r);
-      await this.post({ roomId: r.roomId, body: chatHeld(r, HELD_REASON_DE["not-in-register"]), severity: "warning" });
-      return { result: "held", reason: "not-in-register" };
-    }
+    if (parsed.method === "llm") return this.hold(r, "ai-extracted", doc, ctx);
+    if (registerApplies(r) && !register.listed) return this.hold(r, "not-in-register", doc, ctx);
     const filedResources = await this.file(r, doc, ctx);
     return { result: "filed", filedResources };
+  }
+
+  /** Deterministic parser first; verified LLM fallback only if it fails and an LLM is configured (DESIGN §3). */
+  protected async read(content: string): Promise<ParseResult> {
+    const parsed = this.d.parser.parse(content);
+    if (parsed.ok || !this.d.llm.enabled) return parsed;
+    const ai = await llmParse(this.d.llm, content);
+    return ai.ok ? ai : { ok: false, method: "llm", problems: [...parsed.problems, ...ai.problems] };
+  }
+
+  /** Not filed automatically; Dr. Hofer decides in the widget (CORE-11). */
+  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", _doc: ParsedDocument, _ctx: FilingContext): Promise<AnswerOutcome> {
+    r.status = "held";
+    r.heldReason = reason;
+    await this.d.repo.update(r);
+    await this.post({ roomId: r.roomId, body: chatHeld(r, HELD_REASON_DE[reason]), severity: "warning" });
+    return { result: "held", reason };
   }
 
   /** Build the transaction, send it, mark the request filed, audit + Matrix ✅. */
