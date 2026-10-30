@@ -43,7 +43,7 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     expect(summary).toMatchObject({ kind: "lab-result" });
     if (summary?.kind !== "lab-result") return;
     expect(summary.values).toHaveLength(4);
-    expect(summary.values[0]).toMatchObject({ testName: expect.stringContaining("INR"), value: 1.0, low: 0.8, high: 1.2, interpretation: "N" });
+    expect(summary.values[0]).toMatchObject({ testName: expect.stringContaining("INR"), value: 1.0, unit: "", low: 0.8, high: 1.2, interpretation: "N" });
     await expect(service.submitAnswer(token, id, { ...maria, content: "x" }, {})).rejects.toMatchObject({ code: "already-answered" });
   });
 

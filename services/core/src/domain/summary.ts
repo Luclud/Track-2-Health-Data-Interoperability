@@ -30,7 +30,8 @@ export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise
       const v: Extract<FiledSummary, { kind: "lab-result" }>["values"][number] = {
         testName: o.code.text ?? o.code.coding?.[0]?.code ?? "",
         value: q.value,
-        unit: q.unit ?? "",
+        // UCUM annotations like "{INR}" are codes, not units a doctor reads.
+        unit: /^\{.*\}$/.test(q.unit ?? "") ? "" : (q.unit ?? ""),
         interpretation: code === "H" || code === "L" ? code : "N",
       };
       if (range?.low?.value !== undefined) v.low = range.low.value;
