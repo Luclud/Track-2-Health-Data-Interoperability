@@ -1,0 +1,56 @@
+# Brieftaube stack. Owner: Account B, Dev Matrix (task INFRA-1).
+# Start: npm run stack:up   (uses ../.env, copy from .env.example)
+# Images default to mirrors because Docker Hub rate-limits the agent machines;
+# on the demo laptop you can set the *_IMAGE variables in .env to plain Docker Hub names.
+name: brieftaube
+
+services:
+  synapse:
+    image: ${SYNAPSE_IMAGE:-mirror.gcr.io/matrixdotorg/synapse:latest}
+    entrypoint: ["/bin/sh", "/config/start.sh"]
+    environment:
+      SYNAPSE_CONFIG_PATH: /config/homeserver.yaml
+    volumes:
+      - ./synapse:/config:ro
+      - synapse-data:/data
+    ports:
+      - "8008:8008"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8008/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  element:
+    image: ${ELEMENT_IMAGE:-ghcr.io/element-hq/element-web:latest}
+    volumes:
+      - ./element/config.json:/app/config.json:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - synapse
+
+  hapi:
+    image: ${HAPI_IMAGE:-mirror.gcr.io/hapiproject/hapi:latest}
+    environment:
+      hapi.fhir.fhir_version: R4
+      hapi.fhir.allow_external_references: "true"
+      hapi.fhir.client_id_strategy: ALPHANUMERIC
+      hapi.fhir.cors.allowed_origin: "*"
+    ports:
+      - "8090:8080"
+    volumes:
+      - hapi-data:/data/hapi
+
+  mailpit:
+    image: ${MAILPIT_IMAGE:-mirror.gcr.io/axllent/mailpit:latest}
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "8025:8025" # web UI + API
+      - "1025:1025" # SMTP
+
+volumes:
+  synapse-data:
+  hapi-data:

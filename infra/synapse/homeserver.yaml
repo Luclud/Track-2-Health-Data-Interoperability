@@ -1,0 +1,48 @@
+# Synthetic test homeserver for the closed network (PGK-like). Owner: Account B, Dev Matrix (INFRA-1).
+server_name: "klinikum.example"
+public_baseurl: "http://localhost:8008/"
+pid_file: /data/homeserver.pid
+signing_key_path: /data/klinikum.example.signing.key
+media_store_path: /data/media_store
+report_stats: false
+suppress_key_server_warning: true
+trusted_key_servers: []
+federation_domain_whitelist: []   # closed network: no federation in the prototype
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      # "openid" exposes /_matrix/federation/v1/openid/userinfo, which the core uses to verify widget OpenID tokens
+      - names: [client, openid]
+        compress: false
+
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+
+log_config: /config/log.config
+
+# Users are created only by scripts/seed.ts through the admin registration API.
+enable_registration: false
+registration_shared_secret: "brieftaube-dev-shared-secret"
+macaroon_secret_key: "brieftaube-dev-macaroon-secret"
+form_secret: "brieftaube-dev-form-secret"
+
+# Generous limits so the bot and the tests are never rate-limited
+rc_message:
+  per_second: 1000
+  burst_count: 1000
+rc_login:
+  address: { per_second: 1000, burst_count: 1000 }
+  account: { per_second: 1000, burst_count: 1000 }
+  failed_attempts: { per_second: 1000, burst_count: 1000 }
+rc_registration:
+  per_second: 1000
+  burst_count: 1000
+rc_joins:
+  local: { per_second: 1000, burst_count: 1000 }

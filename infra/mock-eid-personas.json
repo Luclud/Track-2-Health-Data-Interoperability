@@ -1,0 +1,9 @@
+{
+  "note": "Personas offered by the mock ID Austria login page. 'andere Person' lets anyone type a name + birth date (jury tests). bPKs are fake.",
+  "personas": [
+    { "key": "eva-brandl", "given": ["Eva"], "family": "Brandl", "prefix": ["Dr."], "birthDate": "1979-05-14", "bpk": "GH:mock-bpk-eva-brandl", "label": "Dr. Eva Brandl — Laborärztin (richtige Empfängerin Anfrage 1)" },
+    { "key": "stefan-kern", "given": ["Stefan"], "family": "Kern", "birthDate": "1988-04-30", "bpk": "GH:mock-bpk-stefan-kern", "label": "Stefan Kern — Entlassungsmanagement (richtiger Empfänger Anfrage 2)" },
+    { "key": "thomas-gruber", "given": ["Thomas"], "family": "Gruber", "prefix": ["Dr."], "birthDate": "1983-11-02", "bpk": "GH:mock-bpk-thomas-gruber", "label": "Dr. Thomas Gruber — Kollege im Labor (M2: weitergeleitete Mail)" },
+    { "key": "ines-fremd", "given": ["Ines"], "family": "Fremd", "birthDate": "1990-08-08", "bpk": "GH:mock-bpk-ines-fremd", "label": "Ines Fremd — hat die Mail durch einen Tippfehler bekommen (M1)" }
+  ]
+}

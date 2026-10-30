@@ -1,0 +1,47 @@
+{
+  "resourceType": "Task",
+  "id": "bt-7k2q",
+  "identifier": [
+    {
+      "system": "urn:brieftaube:request",
+      "value": "BT-7K2Q"
+    }
+  ],
+  "status": "requested",
+  "intent": "order",
+  "code": {
+    "coding": [
+      {
+        "system": "http://hl7.org/fhir/CodeSystem/task-code",
+        "code": "fulfill"
+      }
+    ]
+  },
+  "description": "Dokumentanforderung: Laborbefund",
+  "for": {
+    "reference": "Patient/maria-beispiel",
+    "display": "Maria Beispiel"
+  },
+  "authoredOn": "2026-10-30T09:05:00+01:00",
+  "lastModified": "2026-10-30T09:05:00+01:00",
+  "requester": {
+    "reference": "Practitioner/lena-hofer",
+    "display": "Dr. Lena Hofer"
+  },
+  "owner": {
+    "display": "Dr. Eva Brandl, Labor Kanalstraße"
+  },
+  "note": [
+    {
+      "text": "Aktuelle Gerinnungswerte vor geplantem Eingriff"
+    }
+  ],
+  "input": [
+    {
+      "type": {
+        "text": "requested-document-type"
+      },
+      "valueString": "lab-result"
+    }
+  ]
+}

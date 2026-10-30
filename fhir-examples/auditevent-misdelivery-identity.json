@@ -1,0 +1,48 @@
+{
+  "resourceType": "AuditEvent",
+  "type": {
+    "system": "http://dicom.nema.org/resources/ontology/DCM",
+    "code": "110100"
+  },
+  "subtype": [
+    {
+      "system": "urn:brieftaube:audit-step",
+      "code": "misdelivery-caught"
+    }
+  ],
+  "action": "E",
+  "recorded": "2026-10-30T09:30:00+01:00",
+  "outcome": "4",
+  "outcomeDesc": "Identity mismatch: verified person 'Ines Fremd' is not the named recipient 'Dr. Eva Brandl'. Nothing was shown.",
+  "agent": [
+    {
+      "who": {
+        "identifier": {
+          "system": "urn:brieftaube:mock-id-austria:bpk",
+          "value": "GH:mock-bpk-ines-fremd"
+        },
+        "display": "Ines Fremd (not the recipient)"
+      },
+      "requestor": true
+    }
+  ],
+  "source": {
+    "site": "Klinikum Beispielstadt",
+    "observer": {
+      "display": "Brieftaube"
+    },
+    "type": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/security-source-type",
+        "code": "4"
+      }
+    ]
+  },
+  "entity": [
+    {
+      "what": {
+        "reference": "Task/bt-7k2q"
+      }
+    }
+  ]
+}

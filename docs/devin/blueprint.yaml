@@ -1,0 +1,38 @@
+# Devin environment for Brieftaube. Paste into Devin → Settings (organization) → Devin / Machine → this repository's
+# blueprint (or let Devin's setup agent use it as the reference). Same file for both accounts.
+
+initialize: |
+  # Node 22 (not preinstalled on Devin machines)
+  if ! node -v 2>/dev/null | grep -q '^v22'; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+  fi
+  # Java for the HL7 FHIR validator (usually preinstalled)
+  java -version || sudo apt-get install -y openjdk-17-jre-headless
+  # FHIR validator jar outside the repo so every session has it
+  sudo mkdir -p /opt/fhir && sudo chmod 777 /opt/fhir
+  [ -f /opt/fhir/validator_cli.jar ] || curl -fsSL -o /opt/fhir/validator_cli.jar https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar
+  # Pre-pull images from mirrors (Docker Hub rate-limits these machines)
+  docker pull mirror.gcr.io/matrixdotorg/synapse:latest || true
+  docker pull mirror.gcr.io/hapiproject/hapi:latest || true
+  docker pull mirror.gcr.io/axllent/mailpit:latest || true
+  docker pull ghcr.io/element-hq/element-web:latest || true
+  echo 'export FHIR_VALIDATOR_JAR=/opt/fhir/validator_cli.jar' >> "$ENVRC"
+
+maintenance: |
+  npm install --no-audit --no-fund
+  [ -f .env ] || cp .env.example .env
+
+knowledge:
+  - name: rules
+    contents: Read AGENTS.md and docs/TASKS.md before doing anything. Never wait for user input; decide, document in the PR, continue.
+  - name: check
+    contents: npm run check   # typecheck + unit tests + FHIR validation, must be green before every PR
+  - name: test
+    contents: npm test
+  - name: fhir-validation
+    contents: npm run validate:fhir
+  - name: stack
+    contents: npm run stack:up && npm run seed && npm run dev   # Synapse :8008, Element :8080, HAPI :8090, Mailpit :8025, core :3000
+  - name: e2e
+    contents: npm run e2e   # needs the running stack

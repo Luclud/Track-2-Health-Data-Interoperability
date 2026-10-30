@@ -1,0 +1,10 @@
+{
+  "registerName": "Ärzteliste (simuliert)",
+  "note": "Synthetic stand-in for the Austrian physician register (Ärzteliste der ÖÄK). Matching on family name + given name + birth date. Add jury test persons here (or via the mock eID 'andere Person' + register checkbox).",
+  "entries": [
+    { "given": ["Eva"], "family": "Brandl", "birthDate": "1979-05-14", "registrationNumber": "AT-LAB-4711", "specialty": "Medizinische und Chemische Labordiagnostik" },
+    { "given": ["Thomas"], "family": "Gruber", "birthDate": "1983-11-02", "registrationNumber": "AT-LAB-5120", "specialty": "Medizinische und Chemische Labordiagnostik" },
+    { "given": ["Johanna"], "family": "Leitner", "birthDate": "1970-02-20", "registrationNumber": "AT-PMR-2033", "specialty": "Physikalische Medizin und Rehabilitation" },
+    { "given": ["Lena"], "family": "Hofer", "birthDate": "1985-07-09", "registrationNumber": "AT-IM-3301", "specialty": "Innere Medizin" }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "brieftaube",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*",
+    "tests"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck -w apps/doctor-ui",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:fhir": "tsx scripts/validate-fhir.ts",
+    "check": "npm run typecheck && npm run test && npm run validate:fhir",
+    "dev": "tsx watch services/core/src/main.ts",
+    "start": "tsx services/core/src/main.ts",
+    "ui:dev": "npm run dev -w apps/doctor-ui",
+    "ui:build": "npm run build -w apps/doctor-ui",
+    "stack:up": "docker compose -f infra/docker-compose.yml --env-file .env up -d",
+    "stack:down": "docker compose -f infra/docker-compose.yml --env-file .env down",
+    "stack:reset": "docker compose -f infra/docker-compose.yml --env-file .env down -v && rm -rf data",
+    "seed": "tsx scripts/seed.ts",
+    "e2e": "vitest run --config tests/vitest.e2e.config.ts",
+    "e2e:ui": "playwright test -c tests/playwright.config.ts",
+    "metrics": "tsx scripts/metrics.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

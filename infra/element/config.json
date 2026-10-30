@@ -1,0 +1,17 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "http://localhost:8008",
+      "server_name": "klinikum.example"
+    }
+  },
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "brand": "Klinikum Beispielstadt (PGK-Pilot)",
+  "default_theme": "light",
+  "room_directory": { "servers": ["klinikum.example"] },
+  "show_labs_settings": false,
+  "features": {},
+  "setting_defaults": { "breadcrumbs": true },
+  "widget_build_url": null
+}
