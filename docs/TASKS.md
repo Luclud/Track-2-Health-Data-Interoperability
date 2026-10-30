@@ -57,7 +57,7 @@ Owns: `tests/**`, `scripts/validate-fhir.ts`, `scripts/metrics.ts`, `.github/wor
 Owns: `infra/**`, `scripts/seed.ts`, `services/core/src/chat/**`, `apps/doctor-ui/**`
 
 - [ ] **INFRA-1 (P0, first) Stack up.** `npm run stack:up` brings Synapse, Element, HAPI, Mailpit up healthy on a fresh machine (mirror images). Fix `infra/synapse/*` as needed. Document gotchas in `docs/RUNBOOK.md`.
-- [ ] **INFRA-2 (P0) Seed.** Implement `scripts/seed.ts` per its header comment (idempotent). Writes `data/runtime.json`. Core reads `runtime.json` at startup if env vars are empty (add the read in `chat/` — do not edit `config.ts`; ask the coordinator if you must).
+- [x] **INFRA-2 (P0) Seed.** Implement `scripts/seed.ts` per its header comment (idempotent). Writes `data/runtime.json`. Core reads `runtime.json` at startup if env vars are empty (add the read in `chat/` — do not edit `config.ts`; ask the coordinator if you must).
 - [ ] **MATRIX-2 (P0) MatrixNotifier.** Post `m.room.message` with `body` + `format: org.matrix.custom.html` + `formatted_body` as the bot. Retries once. In `CHAT_MODE=memory` the in-memory notifier stays.
 - [ ] **UI-1 (P0) Doctor UI – new request.** React app: patient picker (`/api/patients`), document type, note, recipient (name, role, organization, physician yes/no, channel email/SMS, address). Calls `/api/recipient-check` on blur and shows warnings; sending with warnings needs a second click ("trotzdem senden"). German UI, clean clinical look, fits a narrow widget panel (≥ 320 px).
 - [ ] **UI-2 (P0) Doctor UI – requests list.** Status per request with the audit timeline (icons per step), filed summary (lab table with H/L highlighting / rehab excerpt), problems highlighted (identity mismatch, wrong patient). Polls every 3 s.
