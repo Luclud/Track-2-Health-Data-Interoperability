@@ -70,4 +70,4 @@ npx tsx services/core/src/portal/__fakes__/dev-server.ts   # outside portal: htt
 ## Team and video
 
 - Team Brieftaube: Jonathan Kalmbach, Victoria Beneder, Luca Ludwig, Arton Deskaj, Lorenz Pichler, Áron Barnabás Turán
-- Video: `<link>`
+- Video: [Google Drive folder](https://drive.google.com/drive/folders/17lTHPpZPTaNNC59lcp2_nl8TQ1cKigPq?usp=sharing)
