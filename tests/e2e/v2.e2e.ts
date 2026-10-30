@@ -175,7 +175,8 @@ describe.skipIf(!stack)("V2 portal: demo buttons and receipt (V2-JURY-2, V2-RCPT
     const t = text(result);
     expect(t).toMatch(/Eingangsbestätigung/);
     expect(t).toContain(request.reference);
-    const sha = createHash("sha256").update(content, "utf8").digest("hex");
+    // The answer form posts the textarea like a browser does (line breaks as CRLF); the receipt hashes what was received.
+    const sha = createHash("sha256").update(content.replace(/\r?\n/g, "\r\n"), "utf8").digest("hex");
     expect(result.html).toContain(sha.slice(0, 16));
     expect(result.html).toContain(sha);
     expect(result.html).toMatch(/window\.print\(\)/);
@@ -199,7 +200,7 @@ describe.skipIf(!stack)("V2 reminders and link rotation (V2-REM-1)", () => {
     for (const part of [reminderMail.subject, reminderMail.text, reminderMail.html]) {
       assertNotificationIsClean(part, { patient: MARIA, documentType: "lab-result", recipientAddress: address });
     }
-    expect(reminderMail.text).toMatch(/Erinnerung/);
+    expect(reminderMail.subject).toMatch(/^Erinnerung/);
 
     const old = new OutsidePerson(first);
     const oldPage = await old.browser.get(first);
