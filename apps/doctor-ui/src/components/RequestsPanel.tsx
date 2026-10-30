@@ -237,25 +237,29 @@ function fhirLine(refs: string[]): string {
 }
 
 function Original({ o, filed }: { o: FiledOriginal; filed: string[] }) {
+  const [open, setOpen] = useState(false);
   const lines = o.text.split(/\r?\n/);
   const name = o.fileName ?? "dokument.md";
   return (
     <>
       <h3>Originaldokument</h3>
-      <details className="original">
+      {/* The text is rendered only while open: it is the raw document (e.g. English test names), not part of the summary. */}
+      <details className="original" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary>
           📄 <b>{name}</b> <span className="muted small">· wie empfangen · SHA-256 {o.sha256.slice(0, 12)}…</span>
         </summary>
-        <ol className="source">
-          {lines.map((text, i) => (
-            <li key={i}>
-              <span className="ln" aria-hidden>
-                {i + 1}
-              </span>
-              <code>{text || " "}</code>
-            </li>
-          ))}
-        </ol>
+        {open && (
+          <ol className="source">
+            {lines.map((text, i) => (
+              <li key={i}>
+                <span className="ln" aria-hidden>
+                  {i + 1}
+                </span>
+                <code>{text || " "}</code>
+              </li>
+            ))}
+          </ol>
+        )}
         <div className="original-foot">
           <span className="muted small">Abgelegt in FHIR: {fhirLine(filed)} · Original in {o.storedIn.split("/")[0]}</span>
           <a className="link" download={name} href={`data:${o.contentType};charset=utf-8,${encodeURIComponent(o.text)}`}>
