@@ -23,8 +23,9 @@ STEP 3 — merge loop (every ~20 minutes until 08:30):
 
 STEP 4 — integration from 07:00: INT-1..INT-4 in docs/TASKS.md. Full stack, seed, `npm run e2e` green for R1, R2, M1–M3, both the Element/widget path (CHAT_MODE=matrix, AUTH_MODE=matrix) and the standalone website (?mode=standalone). Then write docs/MORNING-REPORT.md: what works (exact commands), what doesn't, known issues, metric results (docs/METRICS.md), open PRs. Terminate all children, confirm status exit.
 
-STEP 5 — budget and handoff. This account has roughly 90 ACUs for tonight. Check usage of yourself and all children every ~20 minutes.
-- At ~60 ACUs: no new P2/P3 tasks.
-- At ~75 ACUs: tell every child to finish its current PR (push, open PR, even as draft) within 15 minutes and stop. Merge what is green.
+STEP 5 — budget and handoff. Use the full budget of this account (roughly 90 ACUs), then hand off. There is NO automatic credit top-up: when credits reach zero, all sessions stop abruptly.
+- Tell every child: push your branch at least every 30 minutes (draft PR is fine), so nothing is lost if the account stops suddenly.
+- Check usage of yourself and all children every ~20 minutes. Keep the normal priority order (P0 first); no early stop of P1/P2 work.
+- At ~82 ACUs: tell every child to push its current work within 10 minutes (open a PR, draft if unfinished) and stop. Merge what is green.
 - Then write docs/HANDOFF.md on main (direct commit is allowed for this file): time, ACUs used, per lane: done / in progress (branch + PR link) / next task, known blockers, anything a fresh coordinator must know. Terminate all children, then stop yourself.
   A human will connect the second Devin account and start a new coordinator with this same prompt; it continues from your handoff.
