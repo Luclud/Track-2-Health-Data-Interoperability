@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AUDIT_STEPS } from "@brieftaube/shared";
-import { computeMetrics, renderMarkdown } from "../../scripts/metrics.ts";
+import { AUDIT_STEPS, EXTRA_AUDIT_STEPS } from "@brieftaube/shared";
+import { aiEvalLine, computeMetrics, renderMarkdown } from "../../scripts/metrics.ts";
 
 describe("metrics", () => {
   it("reports missing runs as not measured, never as a pass", () => {
@@ -35,6 +35,32 @@ describe("metrics", () => {
 
   it("renders a markdown table with one row per metric", () => {
     const md = renderMarkdown(computeMetrics({}), { generatedAt: "2026-10-30T05:00:00Z" });
+    expect(md.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Metric"))).toHaveLength(4);
+  });
+
+  it("counts exactly the six challenge audit steps; reminder-sent is not counted", () => {
+    expect(AUDIT_STEPS).toHaveLength(6);
+    expect(AUDIT_STEPS).not.toContain("reminder-sent");
+    const withExtra = computeMetrics({ e2e: { R1: { auditSteps: [...AUDIT_STEPS, ...EXTRA_AUDIT_STEPS] } } });
+    expect(withExtra[3]!.result).toBe("6 of 6");
+    const extraOnly = computeMetrics({ e2e: { R1: { auditSteps: ["reminder-sent", "request-sent"] } } });
+    expect(extraOnly[3]!.result).toBe("1 of 6 (missing: link-opened, identity-checked, answer-sent, answer-filed, misdelivery-caught)");
+    expect(extraOnly[3]!.pass).toBe(false);
+  });
+
+  it("names the six audit steps in the markdown", () => {
+    const md = renderMarkdown(computeMetrics({}), { generatedAt: "2026-10-30T05:00:00Z" });
+    for (const s of AUDIT_STEPS) expect(md).toContain(s);
+    expect(md).toContain("reminder-sent) are logged but not counted");
+  });
+
+  it("adds a KI-Auswertung line linking docs/AI-EVAL.md", () => {
+    expect(aiEvalLine(undefined)).toBe("**KI-Auswertung:** not run yet (`npm run ai:eval` writes [docs/AI-EVAL.md](AI-EVAL.md)).");
+    const mock = "# KI-Auswertung (MOCK)\n\n...\nWerte ohne Beleg im Original abgelegt: 0\n";
+    expect(aiEvalLine(mock)).toBe("**KI-Auswertung:** [docs/AI-EVAL.md](AI-EVAL.md) (MOCK model, not a real result) – Werte ohne Beleg im Original abgelegt: 0.");
+    expect(aiEvalLine("# KI-Auswertung – anthropic claude-sonnet-5-5\nWerte ohne Beleg im Original abgelegt: 0")).not.toContain("MOCK");
+    const md = renderMarkdown(computeMetrics({}), { generatedAt: "2026-10-30T05:00:00Z", aiEval: mock });
+    expect(md).toContain("**KI-Auswertung:** [docs/AI-EVAL.md](AI-EVAL.md)");
     expect(md.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Metric"))).toHaveLength(4);
   });
 });
