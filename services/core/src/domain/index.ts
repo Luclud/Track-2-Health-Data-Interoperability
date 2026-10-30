@@ -38,7 +38,7 @@ export function createRequestService(deps: RequestServiceDeps): RequestService {
     detail: s.detail.bind(s),
     openLink: s.openLink.bind(s),
     completeIdentityCheck: s.completeIdentityCheck.bind(s),
-    submitAnswer: todo("submitAnswer", "CORE-5"),
+    submitAnswer: s.submitAnswer.bind(s),
     release: todo("release", "CORE-11"),
     reject: todo("reject", "CORE-11"),
   };
