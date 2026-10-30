@@ -64,7 +64,7 @@ Owns: `infra/**`, `scripts/seed.ts`, `services/core/src/chat/**`, `apps/doctor-u
 - [ ] **UI-3 (P0) Two modes.** Widget mode: `matrix-widget-api` (`WidgetApi`, request OpenID credentials, send them as Bearer). Standalone mode (`?mode=standalone`): no Element; left = simulated room timeline from `/api/chat/messages`, right = the same panels; auth `X-Dev-User`. Must be usable for the demo website tomorrow without extra work.
 - [x] **UI-4 (P1) Element integration check.** After seed, logging into Element as lena.hofer shows the room with the widget pinned, no extra clicks except a possible one-time widget permission. Screenshot in `docs/screenshots/`.
 - [ ] **INFRA-3 (P2) One-command demo.** `scripts/demo.sh`: stack up → seed → ui build → start core with `CHAT_MODE=matrix MAIL_MODE=smtp AUTH_MODE=matrix`; prints all URLs.
-- [ ] **BOT-1 (P3)** `!brieftaube status` command in the room lists open requests.
+- [x] **BOT-1 (P3)** `!brieftaube status` command in the room lists open requests.
 
 ## Lane B-OUTSIDE — Dev Outside (account B)
 Owns: `services/core/src/{portal,eid,notify,register}/**` (except `notify/privacy.ts`, which is done — do not weaken it)
