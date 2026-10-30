@@ -39,6 +39,11 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     expect(chat.at(-1)!.body).toBe(
       `✅ ${request.reference}: Laborbefund von Dr. Eva Brandl abgelegt. INR 1.0 (0.8–1.2) · aPTT 31 s · Thrombozyten 245 · Fibrinogen 3.1 g/L – alle im Referenzbereich. Identität: ID Austria (simuliert), Ärzteliste ✓`,
     );
+    const { summary } = (await service.detail(request.id))!;
+    expect(summary).toMatchObject({ kind: "lab-result" });
+    if (summary?.kind !== "lab-result") return;
+    expect(summary.values).toHaveLength(4);
+    expect(summary.values[0]).toMatchObject({ testName: expect.stringContaining("INR"), value: 1.0, low: 0.8, high: 1.2, interpretation: "N" });
     await expect(service.submitAnswer(token, id, { ...maria, content: "x" }, {})).rejects.toMatchObject({ code: "already-answered" });
   });
 
@@ -50,6 +55,12 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     const out = await service.submitAnswer(token, id, { ...maria, content: doc("lab-result-maria-beispiel.md") }, {});
     expect(out.result).toBe("filed");
     expect((await deps.repo.byId(request.id))!.status).toBe("filed");
+    deps.fhir.read = async () => {
+      throw new Error("HAPI down");
+    };
+    const detail = (await service.detail(request.id))!;
+    expect(detail.request.status).toBe("filed");
+    expect(detail.summary).toBeUndefined();
   });
 
   it("rehab report from Stefan Kern is filed", async () => {
@@ -61,6 +72,12 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     expect((await deps.chat.list(rehabBody.roomId)).at(-1)!.body).toBe(
       `✅ ${request.reference}: Reha-Entlassungsbericht von Stefan Kern abgelegt (Aufenthalt 02.09.2026–23.09.2026). Identität: ID Austria (simuliert)`,
     );
+    const { summary } = (await service.detail(request.id))!;
+    expect(summary).toMatchObject({ kind: "rehab-discharge-report", stay: { start: "2026-09-02", end: "2026-09-23" } });
+    if (summary?.kind !== "rehab-discharge-report") return;
+    expect(summary.excerpt.length).toBeGreaterThan(20);
+    expect(summary.excerpt.length).toBeLessThanOrEqual(300);
+    expect(summary.excerpt).not.toContain("##");
   });
 });
 

@@ -25,6 +25,7 @@ import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
 import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
+import { filedSummary } from "./summary.ts";
 import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
@@ -131,7 +132,14 @@ export class CoreRequestService implements Partial<RequestService> {
     const r = await this.d.repo.byId(id);
     if (!r) return undefined;
     const req = await this.expireIfDue(r);
-    return { request: toView(req), audit: await this.d.audit.forRequest(id) };
+    const out: RequestDetailResponse = { request: toView(req), audit: await this.d.audit.forRequest(id) };
+    try {
+      const summary = await filedSummary(this.d.fhir, req);
+      if (summary) out.summary = summary;
+    } catch {
+      // Summary is display-only; an unreachable FHIR server must not break the detail view.
+    }
+    return out;
   }
 
   async openLink(token: string, meta: RequestMeta) {
