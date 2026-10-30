@@ -50,20 +50,11 @@ export class SqliteAuditLog implements AuditLog {
     );
   }
 
+  private readonly pending = new Set<Promise<void>>();
+
+  /** SQLite + JSONL first (the record of truth), then the FHIR AuditEvent mirror in the background. */
   async record(e: Omit<AuditEntry, "id" | "at"> & { at?: string }): Promise<AuditEntry> {
     const entry: AuditEntry = { ...e, id: randomUUID(), at: e.at ?? new Date().toISOString() };
-    try {
-      const patientId = await this.opts.patientIdFor?.(entry.requestId);
-      const ev = buildAuditEvent(entry, {
-        taskId: entry.requestReference ? taskId(entry.requestReference) : undefined,
-        patientId,
-        site: REQUESTER_ORG,
-      });
-      const created = await this.fhir.create(ev);
-      if (created?.id) entry.fhirAuditEventId = created.id;
-    } catch (err) {
-      this.log(`audit: FHIR AuditEvent mirror failed for ${entry.step} ${entry.requestReference}: ${(err as Error).message}`);
-    }
     const json = JSON.stringify(entry);
     this.db.prepare("INSERT INTO audit (id, request_id, at, json) VALUES (?, ?, ?, ?)").run(entry.id, entry.requestId, entry.at, json);
     if (this.jsonl) {
@@ -73,7 +64,32 @@ export class SqliteAuditLog implements AuditLog {
         this.log(`audit: append to ${this.jsonl} failed: ${(err as Error).message}`);
       }
     }
+    const p = this.mirror(entry).finally(() => this.pending.delete(p));
+    this.pending.add(p);
     return entry;
+  }
+
+  /** Wait for background FHIR mirrors (tests, shutdown). */
+  async flush(): Promise<void> {
+    await Promise.all([...this.pending]);
+  }
+
+  private async mirror(entry: AuditEntry): Promise<void> {
+    try {
+      const patientId = await this.opts.patientIdFor?.(entry.requestId);
+      const ev = buildAuditEvent(entry, {
+        taskId: entry.requestReference ? taskId(entry.requestReference) : undefined,
+        patientId,
+        site: REQUESTER_ORG,
+      });
+      const created = await this.fhir.create(ev);
+      if (created?.id) {
+        entry.fhirAuditEventId = created.id;
+        this.db.prepare("UPDATE audit SET json = ? WHERE id = ?").run(JSON.stringify(entry), entry.id);
+      }
+    } catch (err) {
+      this.log(`audit: FHIR AuditEvent mirror failed for ${entry.step} ${entry.requestReference}: ${(err as Error).message}`);
+    }
   }
 
   async forRequest(requestId: string): Promise<AuditEntry[]> {

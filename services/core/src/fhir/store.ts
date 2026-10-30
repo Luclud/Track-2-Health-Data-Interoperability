@@ -40,17 +40,26 @@ export class HapiFhirStore implements FhirStore {
   constructor(
     baseUrl: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly timeoutMs = 5000,
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
   private async call<T>(method: string, path: string, body?: unknown, allow404 = false): Promise<T | undefined> {
     const url = `${this.baseUrl}/${path}`;
-    const res = await this.fetchImpl(url, {
-      method,
-      headers: { accept: FHIR_JSON, ...(body === undefined ? {} : { "content-type": FHIR_JSON }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await this.fetchImpl(url, {
+        method,
+        signal: AbortSignal.timeout(this.timeoutMs),
+        headers: { accept: FHIR_JSON, ...(body === undefined ? {} : { "content-type": FHIR_JSON }) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (err) {
+      const e = err as Error;
+      const why = e.name === "TimeoutError" || e.name === "AbortError" ? `timed out after ${this.timeoutMs} ms` : e.message;
+      throw new Error(`FHIR ${method} ${url} failed: ${why}`);
+    }
     if (allow404 && (res.status === 404 || res.status === 410)) return undefined;
     const text = await res.text();
     let json: unknown;

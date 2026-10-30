@@ -25,6 +25,7 @@ describe("SqliteAuditLog", () => {
     const a = await log.record(entry("link-opened", "r1", "2026-10-30T08:10:00.000Z"));
     await log.record(entry("request-sent", "r1", "2026-10-30T08:05:00.000Z"));
     await log.record(entry("request-sent", "r2"));
+    await log.flush();
     expect(a.id).toBeTruthy();
     expect(a.fhirAuditEventId).toBeTruthy();
     expect((await log.forRequest("r1")).map((e) => e.step)).toEqual(["request-sent", "link-opened"]);
@@ -45,8 +46,26 @@ describe("SqliteAuditLog", () => {
     const logs: string[] = [];
     const log = new SqliteAuditLog({ dataDir: ":memory:", log: (m) => logs.push(m) }, broken);
     const e = await log.record(entry("request-sent"));
+    await log.flush();
     expect(e.fhirAuditEventId).toBeUndefined();
     expect(await log.all()).toHaveLength(1);
     expect(logs[0]).toContain("HAPI down");
+  });
+
+  it("SQLite first; a hanging mirror never blocks record()", async () => {
+    const hanging = { create: () => new Promise(() => {}) } as unknown as FhirStore;
+    const log = new SqliteAuditLog({ dataDir: ":memory:", log: () => {} }, hanging);
+    const e = await log.record(entry("request-sent"));
+    expect(e.id).toBeTruthy();
+    expect(await log.all()).toHaveLength(1);
+  });
+
+  it("mirror id is written back to SQLite", async () => {
+    const fhir = new MemoryFhirStore();
+    const log = new SqliteAuditLog({ dataDir: ":memory:" }, fhir);
+    const e = await log.record(entry("request-sent"));
+    await log.flush();
+    expect((await log.all())[0]!.fhirAuditEventId).toBe(e.fhirAuditEventId);
+    expect(e.fhirAuditEventId).toBeTruthy();
   });
 });

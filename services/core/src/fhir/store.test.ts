@@ -52,6 +52,13 @@ describe("HapiFhirStore", () => {
     expect((err as Error).message).toContain("boom");
   });
 
+  it("aborts slow calls after the timeout", async () => {
+    const f = ((_u: string, init: RequestInit) =>
+      new Promise((_res, rej) => init.signal!.addEventListener("abort", () => rej(init.signal!.reason)))) as unknown as typeof fetch;
+    const s = new HapiFhirStore("http://hapi/fhir", f, 30);
+    await expect(s.read("Patient", "x")).rejects.toThrow("FHIR GET http://hapi/fhir/Patient/x failed: timed out after 30 ms");
+  });
+
   it("maps urn:uuid to created ids", () => {
     const req: Bundle = { resourceType: "Bundle", type: "transaction", entry: [{ fullUrl: "urn:uuid:a" }, { fullUrl: "urn:uuid:b" }, { fullUrl: "urn:uuid:c" }] };
     const res: Bundle = {
