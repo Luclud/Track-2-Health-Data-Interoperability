@@ -34,19 +34,35 @@ describe("parseCommand", () => {
 });
 
 describe("statusMessage", () => {
-  it("lists only open requests, oldest first", () => {
-    const m = statusMessage(ROOM, [
-      req("BT-B", "held", "2026-10-30T10:00:00Z"),
-      req("BT-F", "filed", "2026-10-30T08:00:00Z"),
-      req("BT-A", "sent", "2026-10-30T09:00:00Z"),
-    ]);
+  it("groups like the status board: Problem and Zur Prüfung first, filed only counted", () => {
+    const now = Date.parse("2026-10-30T12:00:00Z");
+    const m = statusMessage(
+      ROOM,
+      [
+        req("BT-B", "held", "2026-10-30T10:00:00Z"),
+        req("BT-F", "filed", "2026-10-30T08:00:00Z"),
+        { ...req("BT-A", "sent", "2026-10-30T09:00:00Z"), expiresAt: "2026-10-30T17:30:00Z", reminderSentAt: "2026-10-30T11:00:00Z" },
+        req("BT-R", "rejected", "2026-10-30T07:00:00Z"),
+      ],
+      now,
+    );
     expect(m.body.split("\n")).toEqual([
-      "📋 2 offene Anfragen:",
-      "• BT-A – Laborbefund für Maria Beispiel an Dr. Eva Brandl: gesendet, Link noch nicht geöffnet",
+      "📋 1 Problem · 1 Zur Prüfung · 1 Wartet auf Antwort · 1 Abgelegt",
+      "Problem:",
+      "• BT-R – Laborbefund für Maria Beispiel an Dr. Eva Brandl: Antwort abgelehnt – wartet auf korrigierte Antwort",
+      "Zur Prüfung:",
       "• BT-B – Laborbefund für Maria Beispiel an Dr. Eva Brandl: wartet auf Ihre Freigabe",
+      "Wartet auf Antwort:",
+      "• BT-A – Laborbefund für Maria Beispiel an Dr. Eva Brandl: gesendet, Link noch nicht geöffnet · läuft ab in 5 h · 🔔 Erinnerung gesendet",
     ]);
     expect(m.severity).toBe("warning");
-    expect(m.html).toContain("<li><b>BT-A</b>");
+    expect(m.html).toContain("<li><b>BT-R</b>");
+    const html = m.html ?? "";
+    expect(html.indexOf("Problem")).toBeLessThan(html.indexOf("Wartet auf Antwort"));
+  });
+
+  it("is info-only when everything is just waiting", () => {
+    expect(statusMessage(ROOM, [req("BT-A", "opened", "2026-10-30T09:00:00Z")]).severity).toBe("info");
   });
 
   it("says so when nothing is open", () => {

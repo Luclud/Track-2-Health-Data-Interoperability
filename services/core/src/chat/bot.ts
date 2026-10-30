@@ -1,11 +1,9 @@
-// Dev Matrix — task BOT-1. `!brieftaube status` in the room lists open requests.
+// Dev Matrix — task BOT-1. `!brieftaube status` in the room lists requests by status group.
 import type { ChatMessageView, DocumentRequest, RequestStatus } from "@brieftaube/shared";
 import type { ChatNotifier } from "../ports.ts";
 import { STANDALONE_ROOM_ID, type MatrixRuntime } from "./runtime.ts";
 
 type Reply = Omit<ChatMessageView, "id" | "sentAt" | "sender">;
-
-const CLOSED: RequestStatus[] = ["filed", "expired", "cancelled"];
 
 const STATUS_DE: Record<RequestStatus, string> = {
   sent: "gesendet, Link noch nicht geöffnet",
@@ -46,30 +44,70 @@ export function helpMessage(roomId: string): Reply {
   };
 }
 
-/** Room reply listing open requests (oldest first). Room-internal, so patient names are fine here. */
-export function statusMessage(roomId: string, requests: DocumentRequest[]): Reply {
-  const open = requests.filter((r) => !CLOSED.includes(r.status)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  if (open.length === 0) {
+const GROUPS: { label: string; statuses: RequestStatus[] }[] = [
+  { label: "Problem", statuses: ["rejected", "expired", "cancelled"] },
+  { label: "Zur Prüfung", statuses: ["held"] },
+  { label: "Wartet auf Antwort", statuses: ["sent", "opened", "verified", "identity-failed"] },
+];
+
+function expiryText(expiresAt: string, now: number): string {
+  const left = Date.parse(expiresAt) - now;
+  if (Number.isNaN(left)) return "";
+  if (left <= 0) return "Frist abgelaufen";
+  const min = Math.floor(left / 60_000);
+  if (min < 60) return `läuft ab in ${Math.max(min, 1)} min`;
+  const h = Math.floor(min / 60);
+  return h < 48 ? `läuft ab in ${h} h` : `läuft ab in ${Math.floor(h / 24)} Tagen`;
+}
+
+/**
+ * Room reply with the same groups as the doctor UI status board (V2-UI-2):
+ * Problem and Zur Prüfung first, then Wartet auf Antwort (with expiry, 🔔 after a reminder); filed only as a count.
+ * Room-internal, so patient names are fine here.
+ */
+export function statusMessage(roomId: string, requests: DocumentRequest[], now = Date.now()): Reply {
+  const sorted = [...requests].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const groups = GROUPS.map((g) => ({ label: g.label, items: sorted.filter((r) => g.statuses.includes(r.status)) }));
+  const filed = sorted.filter((r) => r.status === "filed").length;
+  const shown = groups.filter((g) => g.items.length > 0);
+  if (shown.length === 0) {
     return { roomId, severity: "success", body: "✅ Keine offenen Anfragen.", html: "✅ Keine offenen Anfragen." };
   }
-  const line = (r: DocumentRequest) =>
-    `${r.reference} – ${DOC_DE[r.documentType]} für ${r.patient.name.given.join(" ")} ${r.patient.name.family} an ${r.recipient.displayName}: ${STATUS_DE[r.status]}`;
-  const needsAction = open.some((r) => r.status === "held");
-  const head = `📋 ${open.length} offene Anfrage${open.length === 1 ? "" : "n"}:`;
+  const extra = (r: DocumentRequest) =>
+    GROUPS[2]!.statuses.includes(r.status)
+      ? ` · ${expiryText(r.expiresAt, now)}${r.reminderSentAt ? " · 🔔 Erinnerung gesendet" : ""}`
+      : "";
+  const who = (r: DocumentRequest) => `${r.patient.name.given.join(" ")} ${r.patient.name.family}`;
+  const head = `📋 ${[...groups.map((g) => `${g.items.length} ${g.label}`), `${filed} Abgelegt`].join(" · ")}`;
   return {
     roomId,
-    severity: needsAction ? "warning" : "info",
-    body: [head, ...open.map((r) => `• ${line(r)}`)].join("\n"),
-    html:
-      `${esc(head)}<ul>` +
-      open
-        .map(
+    severity: groups[0]!.items.length > 0 || groups[1]!.items.length > 0 ? "warning" : "info",
+    body: [
+      head,
+      ...shown.flatMap((g) => [
+        `${g.label}:`,
+        ...g.items.map(
           (r) =>
-            `<li><b>${esc(r.reference)}</b> – ${esc(DOC_DE[r.documentType])} für <b>${esc(`${r.patient.name.given.join(" ")} ${r.patient.name.family}`)}</b>` +
-            ` an ${esc(r.recipient.displayName)}: ${esc(STATUS_DE[r.status])}</li>`,
+            `• ${r.reference} – ${DOC_DE[r.documentType]} für ${who(r)} an ${r.recipient.displayName}: ${STATUS_DE[r.status]}${extra(r)}`,
+        ),
+      ]),
+    ].join("\n"),
+    html:
+      esc(head) +
+      shown
+        .map(
+          (g) =>
+            `<p><b>${esc(g.label)}</b></p><ul>` +
+            g.items
+              .map(
+                (r) =>
+                  `<li><b>${esc(r.reference)}</b> – ${esc(DOC_DE[r.documentType])} für <b>${esc(who(r))}</b>` +
+                  ` an ${esc(r.recipient.displayName)}: ${esc(STATUS_DE[r.status] + extra(r))}</li>`,
+              )
+              .join("") +
+            "</ul>",
         )
-        .join("") +
-      "</ul>",
+        .join(""),
   };
 }
 

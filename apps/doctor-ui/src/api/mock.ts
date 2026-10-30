@@ -18,6 +18,7 @@ import type {
   RequestDetailResponse,
   UiConfigResponse,
 } from "@brieftaube/shared";
+import { REQUEST_TTL_HOURS } from "@brieftaube/shared";
 import type { Api } from "./client.ts";
 import { ApiRequestError } from "./client.ts";
 
@@ -101,6 +102,7 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
     id: id(),
     reference: ref,
     createdAt: iso(minutesAgo),
+    expiresAt: iso(minutesAgo - REQUEST_TTL_HOURS * 60),
     status,
     documentType: "lab-result",
     patient: maria,
@@ -198,6 +200,16 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
     msg(15, "info", "📨 Anfrage BT-R2HB an Sabine Koller (SMS) gesendet – Reha-Entlassungsbericht für Maria Beispiel."),
     msg(7, "success", "✅ BT-R2HB: Reha-Entlassungsbericht von Sabine Koller abgelegt (Aufenthalt 02.09.–23.09.2026). Identität: ID Austria (simuliert)"),
   ];
+  const waiting = mk("BT-W5RT", "sent", 67 * 60, { reminderSentAt: iso(19 * 60) });
+  const waitingRec: MockRecord = {
+    view: waiting,
+    audit: [entry(waiting, "request-sent", 67 * 60, "Request sent by email", "success", LENA), entry(waiting, "reminder-sent", 19 * 60, "Reminder sent with a new link", "success")],
+  };
+  const expired = mk("BT-X3PD", "expired", 80 * 60, { documentType: "rehab-discharge-report" });
+  const expiredRec: MockRecord = {
+    view: expired,
+    audit: [entry(expired, "request-sent", 80 * 60, "Request sent by email", "success", LENA)],
+  };
   const held = mk("BT-H8LD", "held", 5, {
     recipient: { displayName: "Dr. Karin Weiss", name: { prefix: ["Dr."], given: ["Karin"], family: "Weiss" }, role: "Laborärztin", organization: "Labor Dr. Weiss", isPhysician: true, channel: "email", address: "karin.weiss@labor-weiss.example" },
     heldReason: "ai-extracted",
@@ -226,7 +238,7 @@ function sampleData(roomId: string): { records: MockRecord[]; chat: ChatMessageV
     },
   };
   chat.push(msg(2, "warning", "🟡 BT-H8LD: Antwort von Dr. Karin Weiss wurde von der KI gelesen – bitte Werte prüfen und freigeben."));
-  return { records: [filedRec, m1Rec, m3Rec, rehabRec, heldRec], chat };
+  return { records: [filedRec, m1Rec, m3Rec, rehabRec, heldRec, waitingRec, expiredRec], chat };
 }
 
 export class MockApi implements Api {
@@ -280,6 +292,7 @@ export class MockApi implements Api {
       id: id(),
       reference: ref,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + REQUEST_TTL_HOURS * 3_600_000).toISOString(),
       status: "sent",
       documentType: body.documentType,
       patient,
