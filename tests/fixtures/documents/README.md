@@ -21,7 +21,8 @@ for (const f of loadDocumentFixtures()) {
 | `ok` | what `DocumentParser.parse()` must return in `ok` |
 | `document` | the exact `ParsedDocument` (when `ok: true`). For rehab reports, `markdown` is left out of the JSON; the loader sets it to the raw file content |
 | `llmDocument` | (`ok: false` only) what a correct LLM extraction looks like, for `LLM_PROVIDER=mock`. Passes the DESIGN.md §3 checks |
-| `expectedInterpretation` | N/H/L per value, in table order, for the FHIR builder |
+| `expectedInterpretation` | N/H/L per value, in table order, for the FHIR builder (for `ok: false`: of the `llmDocument` values) |
+| `expectedCritical` | (`ok: true` labs) LOINC codes beyond the demo panic limits (V2-CRIT-1), in table order; missing = none |
 | `patientMatchesMaria` | `false` if the document is about someone other than the scenario patient (it must be rejected for her requests) |
 | `$note` | what the fixture tests |
 
@@ -47,3 +48,7 @@ for (const f of loadDocumentFixtures()) {
 | rehab-cross-year-stay | `21 December 2026 to 11 January 2027` |
 | lab-different-patient-martina | same family + birth date as Maria, other first name, so it must be rejected |
 | free-text-letter-not-in-format | German letter, parser `ok:false`, LLM path |
+| lab-critical-platelets-inr | v2: standard format, platelets 38 + INR 5.2 → 🚨 critical alert; aPTT 48 high but not critical; CET |
+| lab-prose-letter-de | v2: German prose letter, decimal commas, `22. Oktober 2026`, `G/l`, LLM path |
+| lab-bullet-list-de | v2: values as a German bullet list (no table), `0,8–1,2`, `22.10.2026`, LLM path |
+| rehab-other-headings | v2: German rehab report from another clinic, German field labels and section headings |

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { MemoryFhirStore } from "../fhir/memory-store.ts";
 import type { MemorySender } from "../notify/index.ts";
 import { identity, labBody, lena, testDeps } from "../domain/testkit.ts";
-import { AnthropicLlmClient, MockLlmClient, OpenAiCompatibleLlmClient, createLlmClient, llmParse } from "./index.ts";
+import { AnthropicLlmClient, DEFAULT_ANTHROPIC_MODEL, MockLlmClient, OpenAiCompatibleLlmClient, createLlmClient, llmParse } from "./index.ts";
 import { verifyLlmDocument } from "./verify.ts";
 
 const PROSE = `Laborpraxis Kanalstraße – Befund
@@ -49,6 +49,13 @@ describe("verifyLlmDocument", () => {
     expect(r.ok).toBe(false);
     expect(r.problems.join("; ")).toContain(problem);
   });
+  it("rehab: a stay written as one range phrase is backed by the source (V2-AI-3 finding)", () => {
+    const src = readFileSync("scenario/documents/rehab-report-maria-beispiel.md", "utf8");
+    const doc = { kind: "rehab-discharge-report", title: "x", organization: "x", patient: { name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" } };
+    expect(verifyLlmDocument(src, { ...doc, stay: { start: "2026-09-02", end: "2026-09-23" } }).ok).toBe(true);
+    expect(verifyLlmDocument(src, { ...doc, stay: { start: "2026-09-03", end: "2026-09-23" } }).ok).toBe(false);
+  });
+
   it("rehab: keeps the original markdown", () => {
     const src = "Reha Waldblick Entlassungsbericht für Maria Beispiel, geboren am 12. März 1961.";
     const r = verifyLlmDocument(src, { kind: "rehab-discharge-report", title: "x", organization: "Reha Waldblick", patient: { name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" }, markdown: "fake" });
@@ -71,12 +78,13 @@ describe("providers", () => {
   };
   const p = { system: "sys", user: "doc", jsonSchema: { type: "object" }, schemaName: "parsed_document" };
 
-  it("anthropic: forced tool call", async () => {
+  it("anthropic: tool call requested in the prompt (newer models reject a forced tool_choice)", async () => {
     const { calls, f } = capture({ content: [{ type: "tool_use", input: { a: 1 } }] });
     expect(await new AnthropicLlmClient("k", "m", undefined, f).completeJson(p)).toEqual({ a: 1 });
     expect(calls[0]!.url).toBe("https://api.anthropic.com/v1/messages");
     const body = JSON.parse(calls[0]!.init.body as string);
-    expect(body).toMatchObject({ model: "m", system: "sys", tool_choice: { type: "tool", name: "parsed_document" } });
+    expect(body).toMatchObject({ model: "m", tool_choice: { type: "auto" }, tools: [{ name: "parsed_document" }] });
+    expect(body.system).toBe("sys\n\nReturn the result only by calling the tool `parsed_document`.");
     expect((calls[0]!.init.headers as Record<string, string>)["x-api-key"]).toBe("k");
   });
   it("openai-compatible / perplexity: json_schema response format", async () => {
@@ -84,6 +92,62 @@ describe("providers", () => {
     expect(await new OpenAiCompatibleLlmClient("https://api.perplexity.ai/", "k", "sonar-pro", f).completeJson(p)).toEqual({ a: 2 });
     expect(calls[0]!.url).toBe("https://api.perplexity.ai/chat/completions");
     expect(JSON.parse(calls[0]!.init.body as string).response_format).toEqual({ type: "json_schema", json_schema: { name: "parsed_document", schema: { type: "object" } } });
+  });
+  const sequence = (...steps: (number | "timeout" | "network")[]) => {
+    const calls: string[] = [];
+    const f = (async (url: string) => {
+      calls.push(url);
+      const step = steps.shift() ?? 200;
+      if (step === "timeout") throw Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+      if (step === "network") throw new TypeError("fetch failed");
+      return step === 200 ? new Response(JSON.stringify({ content: [{ type: "tool_use", input: { ok: 1 } }], choices: [{ message: { content: '{"ok":1}' } }] })) : new Response("busy", { status: step });
+    }) as unknown as typeof fetch;
+    return { calls, f };
+  };
+  const fast = { retryDelayMs: 0 };
+
+  it("anthropic: default model claude-sonnet-5-5, LLM_MODEL overrides (V2-AI-2)", async () => {
+    expect(DEFAULT_ANTHROPIC_MODEL).toBe("claude-sonnet-5-5");
+    const { calls, f } = capture({ content: [{ type: "tool_use", input: {} }] });
+    await new AnthropicLlmClient("k", undefined, undefined, f).completeJson(p);
+    expect(JSON.parse(calls[0]!.init.body as string).model).toBe("claude-sonnet-5-5");
+    const base = testDeps().deps.config;
+    const { calls: c2, f: f2 } = capture({ content: [{ type: "tool_use", input: {} }] });
+    await createLlmClient({ ...base, llmProvider: "anthropic", llmApiKey: "k", llmModel: "claude-x" }, f2).completeJson(p);
+    expect(JSON.parse(c2[0]!.init.body as string).model).toBe("claude-x");
+  });
+  it("20 s timeout signal on every request", async () => {
+    const { calls, f } = capture({ content: [{ type: "tool_use", input: {} }] });
+    await new AnthropicLlmClient("k", undefined, undefined, f).completeJson(p);
+    expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
+  });
+  for (const [label, make] of [
+    ["anthropic", (f: typeof fetch) => new AnthropicLlmClient("k", undefined, undefined, f, fast)],
+    ["openai-compatible", (f: typeof fetch) => new OpenAiCompatibleLlmClient("http://llm.local", "k", "m", f, fast)],
+  ] as const) {
+    it(`${label}: one retry on 429, 5xx and timeout, then success`, async () => {
+      for (const first of [429, 503, "timeout"] as const) {
+        const { calls, f } = sequence(first, 200);
+        expect(await make(f).completeJson(p)).toEqual({ ok: 1 });
+        expect(calls).toHaveLength(2);
+      }
+    });
+    it(`${label}: gives up after the second failure; no retry on 400 or network errors`, async () => {
+      const twice = sequence(500, "timeout");
+      await expect(make(twice.f).completeJson(p)).rejects.toThrow(/timeout/);
+      expect(twice.calls).toHaveLength(2);
+      const bad = sequence(400);
+      await expect(make(bad.f).completeJson(p)).rejects.toThrow(/HTTP 400/);
+      expect(bad.calls).toHaveLength(1);
+      const net = sequence("network");
+      await expect(make(net.f).completeJson(p)).rejects.toThrow(/fetch failed/);
+      expect(net.calls).toHaveLength(1);
+    });
+  }
+  it("provider failure → friendly not-readable result, nothing thrown", async () => {
+    const { f } = sequence(503, 503);
+    const r = await llmParse(new AnthropicLlmClient("k", undefined, undefined, f, fast), PROSE);
+    expect(r).toMatchObject({ ok: false, method: "llm" });
   });
   it("createLlmClient", () => {
     const base = testDeps().deps.config;
@@ -119,6 +183,18 @@ describe("submitAnswer with LLM fallback (mock)", () => {
     const { out, deps } = await answer(bad);
     expect(out).toMatchObject({ result: "rejected", reason: "unreadable" });
     expect((deps.fhir as MemoryFhirStore).transactions).toHaveLength(0);
+  });
+  it("provider down (5xx twice) → friendly unreadable answer, nothing filed, no crash (V2-AI-2)", async () => {
+    const f = (async () => new Response("overloaded", { status: 529 })) as unknown as typeof fetch;
+    const t = testDeps({ llm: new AnthropicLlmClient("k", undefined, undefined, f, { retryDelayMs: 0 }) });
+    const { request } = await t.service.createRequest(lena, labBody);
+    const token = /\/r\/([A-Za-z0-9_-]+)/.exec((await (t.deps.email as MemorySender).inbox())[0]!.body)![1]!;
+    const id = identity("eva-brandl");
+    await t.service.completeIdentityCheck(token, id, {});
+    const out = await t.service.submitAnswer(token, id, { patientGiven: "Maria", patientFamily: "Beispiel", patientBirthDate: "1961-03-12", content: PROSE }, {});
+    expect(out).toMatchObject({ result: "rejected", reason: "unreadable" });
+    expect((t.deps.fhir as MemoryFhirStore).transactions).toHaveLength(0);
+    expect(await t.deps.repo.byId(request.id)).not.toMatchObject({ status: "filed" });
   });
   it("scenario documents never reach the LLM", async () => {
     const { out, llm } = await answer(good(), readFileSync("scenario/documents/lab-result-maria-beispiel.md", "utf8"));

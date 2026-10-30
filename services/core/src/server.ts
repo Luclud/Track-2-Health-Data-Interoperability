@@ -13,6 +13,7 @@ import { registerPortalRoutes } from "./portal/routes.ts";
 import { registerEidRoutes } from "./eid/routes.ts";
 import { registerNotifyRoutes } from "./notify/routes.ts";
 import { registerChatRoutes } from "./chat/routes.ts";
+import { startScheduler } from "./scheduler/index.ts";
 
 export async function buildServer(deps: Deps): Promise<FastifyInstance> {
   const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
@@ -20,6 +21,16 @@ export async function buildServer(deps: Deps): Promise<FastifyInstance> {
   await app.register(cookie, { secret: deps.config.sessionSecret });
   await app.register(formbody);
   await app.register(multipart, { limits: { fileSize: 2 * 1024 * 1024, files: 1 } });
+
+  if (deps.config.juryMode) {
+    app.log.warn("JURY_MODE: Links werden auch an die Arzt-Oberfläche zurückgegeben. Nur für Demos.");
+  }
+
+  let stopScheduler: (() => void) | undefined;
+  app.addHook("onReady", async () => {
+    stopScheduler = startScheduler(deps); // reminders + active expiry (Dev Outside)
+  });
+  app.addHook("onClose", async () => stopScheduler?.());
 
   app.get("/health", async () => ({ ok: true, service: "brieftaube-core" }));
 

@@ -78,13 +78,21 @@ const UCUM: Record<string, string> = {
   "ml/min/1,73m2": "mL/min/{1.73_m2}",
 };
 
+/** Checked before lowercasing: "G/l" (Giga per litre, usual in Austria for blood counts) is not "g/l" (grams). */
+const UCUM_CASE_SENSITIVE: Record<string, string> = {
+  "G/l": "10*9/L",
+  "G/L": "10*9/L",
+  "T/l": "10*12/L",
+  "T/L": "10*12/L",
+};
+
 export function quantity(value: number, unitText: string, loinc: string): Quantity {
   const u = unitText.trim();
   if (!u) {
     const code = loinc === "6301-6" ? "{INR}" : "1";
     return { value, unit: code, system: SYSTEMS.ucum, code };
   }
-  const code = UCUM[u.toLowerCase()];
+  const code = UCUM_CASE_SENSITIVE[u] ?? UCUM[u.toLowerCase()];
   return code ? { value, unit: code, system: SYSTEMS.ucum, code } : { value, unit: u };
 }
 

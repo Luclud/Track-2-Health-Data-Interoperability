@@ -1,6 +1,7 @@
 // Server-rendered German pages of the portal. Every interpolated value is escaped by `html`.
 import { DOCUMENT_TYPE_LABELS_DE, type IdentityCheckOutcome, type VerifiedIdentity } from "@brieftaube/shared";
 import type { AnswerOutcome, AuthorizedRequestView, PublicRequestView } from "../ports.ts";
+import type { AssistResult } from "./assist.ts";
 import { html, page, type SafeHtml } from "./html.ts";
 
 export interface AnswerForm {
@@ -10,6 +11,8 @@ export interface AnswerForm {
   content?: string;
   fileName?: string;
   fileContent?: string;
+  /** ASSIST-4: hidden field, set when the document came from „Übernehmen“. */
+  assisted?: string;
 }
 export type AnswerErrors = Partial<Record<"patientGiven" | "patientFamily" | "patientBirthDate" | "document" | "form", string>>;
 type Step = 1 | 2 | 3;
@@ -69,7 +72,7 @@ ${requestCard(v)}
 }
 
 export function unknownLinkPage(): string {
-  return layout("Link ungültig", html`<h1>Dieser Link ist ungültig</h1><p class="notice err">Bitte prüfen Sie, ob Sie den Link vollständig geöffnet haben. Wenden Sie sich sonst an die Person, die Ihnen die Anfrage gesendet hat.</p>`);
+  return layout("Link ungültig", html`<h1>Dieser Link ist ungültig</h1><p class="notice err">Bitte prüfen Sie, ob Sie den Link vollständig geöffnet haben. Wenden Sie sich sonst an die Person, die Ihnen die Anfrage gesendet hat.</p><p>Haben Sie eine Erinnerung erhalten? Dann wurde dieser Link ersetzt – bitte verwenden Sie den Link aus der neuesten Nachricht.</p>`);
 }
 
 export function closedPage(v: PublicRequestView): string {
@@ -118,7 +121,50 @@ function invalid(id: keyof AnswerErrors, errors: AnswerErrors) {
   return errors[id] ? html` aria-invalid="true" aria-describedby="${id}-error"` : "";
 }
 
-export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity, values: AnswerForm, errors: AnswerErrors = {}, rejected?: Extract<AnswerOutcome, { result: "rejected" }>): string {
+/** JURY_MODE only: links that re-render the form with a demo document in the textarea. */
+export interface DemoLinks { sample: string; wrongPatient: string }
+
+function demoButtons(d: DemoLinks) {
+  return html`<div class="demo" role="group" aria-label="Demo-Hilfen (nur Jury-Modus)"><p class="demo-label">Nur für die Vorführung (Demo):</p>
+<a class="demo-btn" href="${d.sample}">Beispielbefund einsetzen (Demo)</a>
+<a class="demo-btn" href="${d.wrongPatient}">Beispiel: falsche Patientin (Demo)</a></div>`;
+}
+
+/** SENDER_ASSIST only: opt-in checkbox; with `result` the ranked list of the sender's archive. */
+export interface AssistPanel { on: string; off: string; result?: AssistResult; pickBase?: string; picked?: string; pickError?: boolean }
+
+const IMPORTANCE_DE: Record<AssistResult["items"][number]["importance"], string> = { hoch: "Hoch", mittel: "Mittel", niedrig: "Niedrig", "nicht relevant": "Nicht relevant" };
+
+function assistBlock(v: AuthorizedRequestView, a: AssistPanel, values: AnswerForm) {
+  const r = a.result;
+  return html`${a.picked || values.assisted === "1" ? html`<input type="hidden" name="assisted" value="1">` : ""}
+<div class="assist-opt"><label class="check"><input type="checkbox" id="assist-toggle"${r ? html` checked` : ""} data-on="${a.on}" data-off="${a.off}" onchange="location.href=this.checked?this.dataset.on:this.dataset.off"> KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen</label>
+<p class="hint">Optional. Läuft im Echtbetrieb lokal in Ihrer Praxis – Dokumente verlassen die Praxis erst mit „Sicher senden“.</p>
+<noscript><p><a href="${r ? a.off : a.on}">${r ? "KI-Hilfe ausblenden" : "KI-Hilfe öffnen"}</a></p></noscript></div>
+${r ? assistList(v, a, r) : ""}`;
+}
+
+function assistList(v: AuthorizedRequestView, a: AssistPanel, r: AssistResult) {
+  const hidden = r.hiddenOtherPatients;
+  return html`<section id="assist" class="assist" aria-labelledby="assist-h">
+<h3 id="assist-h">Vorschläge aus Ihrer Ablage</h3>
+${r.source === "llm" ? html`<p class="badge llm">KI: ${r.model ?? "LLM"} (Demo über Cloud, nur synthetische Daten)</p>` : html`<p class="badge mock">KI-Vorschlag (Demo, MOCK)</p>`}
+<p class="hint">Im Echtbetrieb läuft ein KI-Modell lokal in Ihrer Praxis (z. B. mit Ollama) und durchsucht nur Ihre eigene Ablage. In dieser Demo liegt eine synthetische Beispiel-Ablage auf unserem Server. Die KI wählt nur aus – senden müssen Sie selbst.</p>
+<p class="sought"><b>Gesucht für:</b> ${v.note?.trim() || DOCUMENT_TYPE_LABELS_DE[v.documentType]}</p>
+${a.picked ? html`<p class="notice ok" role="status">Vorschlag übernommen: ${a.picked}. Bitte prüfen Sie das Dokument und senden Sie es dann.</p>` : ""}
+${a.pickError ? html`<p class="notice err" role="alert">Dieses Dokument wurde in Ihrer Ablage nicht gefunden. Es wurde nichts übernommen.</p>` : ""}
+<ol class="assist-list">${r.items.map(
+    (i) => html`<li class="assist-item imp-${i.importance.replace(" ", "-")}" data-id="${i.id}">
+<p class="assist-head"><span class="imp">${IMPORTANCE_DE[i.importance]}</span> <b>${i.title}</b>${i.date ? html` <span class="date">${formatDate(i.date)}</span>` : ""}</p>
+<p class="reason">${i.reason}</p>
+${i.verified && i.evidence ? html`<p class="evidence">Beleg (Zeile ${i.evidence.line}): <q>${i.evidence.text}</q></p>` : html`<p class="evidence none">nicht belegt</p>`}
+<a class="btn secondary assist-pick" href="${a.pickBase ?? ""}${encodeURIComponent(i.id)}#content">Übernehmen<span class="visually-hidden">: ${i.title}${i.date ? html` vom ${formatDate(i.date)}` : ""}</span></a></li>`,
+  )}</ol>
+${hidden > 0 ? html`<p class="hint">${hidden === 1 ? "1 Dokument einer anderen Person wurde" : `${hidden} Dokumente anderer Personen wurden`} ausgeblendet (Name oder Geburtsdatum passt nicht).</p>` : ""}
+</section>`;
+}
+
+export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity, values: AnswerForm, errors: AnswerErrors = {}, rejected?: Extract<AnswerOutcome, { result: "rejected" }>, demo?: DemoLinks, assist?: AssistPanel): string {
   const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const p = v.patient;
   const who = [...(identity.name.prefix ?? []), ...identity.name.given, identity.name.family].join(" ");
@@ -147,13 +193,14 @@ ${fieldError("patientFamily", errors)}
 <label for="patientBirthDate">Geburtsdatum <span class="hint">z. B. 12.03.1961</span></label>
 <input id="patientBirthDate" name="patientBirthDate" type="date" required value="${values.patientBirthDate ?? ""}"${invalid("patientBirthDate", errors)}>
 ${fieldError("patientBirthDate", errors)}
-<h2>Dokument</h2>
+<h2>Dokument</h2>${assist ? assistBlock(v, assist, values) : ""}
 <label for="file">Datei hochladen <span class="hint">.md oder .txt, höchstens 1 MB</span></label>
 <input id="file" name="file" type="file" accept=".md,.txt,.markdown,text/markdown,text/plain"${invalid("document", errors)}>
 <p class="or">oder</p>
 <label for="content">Text einfügen <span class="hint">den ganzen Inhalt des Dokuments, unverändert</span></label>
 <textarea id="content" name="content" rows="8"${invalid("document", errors)}>${values.content ?? ""}</textarea>
 ${fieldError("document", errors)}
+${demo ? demoButtons(demo) : ""}
 <button class="btn" type="submit">Sicher senden</button>
 <p class="hint">Mit „Sicher senden“ geht das Dokument direkt an ${v.requesterDisplayName} (${v.requesterOrganization}).</p>
 </form>`,
@@ -179,13 +226,37 @@ export function validateAnswer(f: AnswerForm, today = new Date()): AnswerErrors 
   return e;
 }
 
-export function resultPage(v: AuthorizedRequestView, outcome: Exclude<AnswerOutcome, { result: "rejected" }>): string {
+/** Receipt for the sender (V2-RCPT-1). No medical content: no patient, no document type, no values. */
+export interface Receipt {
+  reference: string;
+  receivedAt: string; // ISO 8601
+  senderName: string; // verified e-ID name
+  sha256: string; // hex, of the received document text
+}
+
+function receiptBox(r: Receipt) {
+  return html`<section class="receipt" aria-labelledby="receipt-title">
+<h2 id="receipt-title">Eingangsbestätigung</h2>
+<dl>
+<dt>Referenz</dt><dd>${r.reference}</dd>
+<dt>Eingegangen am</dt><dd>${formatDateTime(r.receivedAt)} Uhr</dd>
+<dt>Absender</dt><dd>${r.senderName} <span class="hint">(mit e-ID bestätigt)</span></dd>
+<dt>Prüfsumme (SHA-256)</dt><dd><code>${r.sha256.slice(0, 16)}</code>
+<details><summary>Vollständige Prüfsumme</summary><code class="hash">${r.sha256}</code></details></dd>
+</dl>
+<p class="hint">Mit der Prüfsumme lässt sich später zeigen, dass genau dieses Dokument übermittelt wurde.</p>
+<button class="btn secondary no-print" type="button" onclick="window.print()">Bestätigung drucken / als PDF speichern</button>
+</section>`;
+}
+
+export function resultPage(v: AuthorizedRequestView, outcome: Exclude<AnswerOutcome, { result: "rejected" }>, receipt?: Receipt): string {
   const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const body =
     outcome.result === "filed"
       ? html`<h1>Vielen Dank – gesendet!</h1><p class="notice ok" role="status">Ihr ${label} wurde sicher an ${v.requesterDisplayName} übermittelt und abgelegt.</p>`
       : html`<h1>Vielen Dank – gesendet!</h1><p class="notice" role="status">Ihr ${label} ist bei ${v.requesterDisplayName} angekommen. Er wird noch kurz geprüft, bevor er abgelegt wird. Sie müssen nichts weiter tun.</p>`;
-  return layout("Gesendet", html`${body}<div class="card"><dl><dt>Referenz</dt><dd>${v.reference}</dd></dl></div><p>Sie können dieses Fenster jetzt schließen.</p>`, { view: v, step: 3 });
+  const tail = receipt ? receiptBox(receipt) : html`<div class="card"><dl><dt>Referenz</dt><dd>${v.reference}</dd></dl></div>`;
+  return layout("Gesendet", html`${body}${tail}<p>Sie können dieses Fenster jetzt schließen.</p>`, { view: v, step: 3 });
 }
 
 export function errorPage(): string {

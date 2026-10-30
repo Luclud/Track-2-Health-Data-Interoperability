@@ -1,0 +1,74 @@
+{
+  "$note": "V2-AI: German lab report with the values as a bullet list instead of a table (German test names, decimal commas, ranges 'A–B', numeric German dates). Parser ok:false ('no results table') → LLM path; must be held (ai-extracted). Scenario values of request 1.",
+  "ok": false,
+  "llmDocument": {
+    "kind": "lab-result",
+    "title": "Labor Kanalstraße: Laborbefund",
+    "organization": "Labor Kanalstraße",
+    "patient": {
+      "name": {
+        "given": [
+          "Maria"
+        ],
+        "family": "Beispiel"
+      },
+      "birthDate": "1961-03-12"
+    },
+    "requestedBy": "Dr. Lena Hofer, Klinikum Beispielstadt",
+    "sampleTaken": "2026-10-22T08:10:00+02:00",
+    "reported": "2026-10-22T11:40:00+02:00",
+    "values": [
+      {
+        "testName": "INR",
+        "value": 1,
+        "unitText": "",
+        "referenceLow": 0.8,
+        "referenceHigh": 1.2,
+        "loinc": "6301-6"
+      },
+      {
+        "testName": "aPTT",
+        "value": 31,
+        "unitText": "s",
+        "referenceLow": 25,
+        "referenceHigh": 37,
+        "loinc": "14979-9"
+      },
+      {
+        "testName": "Thrombozyten",
+        "value": 245,
+        "unitText": "10^9/l",
+        "referenceLow": 150,
+        "referenceHigh": 400,
+        "loinc": "777-3"
+      },
+      {
+        "testName": "Fibrinogen",
+        "value": 3.1,
+        "unitText": "g/l",
+        "referenceLow": 2,
+        "referenceHigh": 4,
+        "loinc": "3255-7"
+      }
+    ],
+    "conclusion": "Alle Werte im Referenzbereich.",
+    "validatedBy": {
+      "name": {
+        "given": [
+          "Eva"
+        ],
+        "family": "Brandl",
+        "prefix": [
+          "Dr."
+        ]
+      },
+      "role": "Laborärztin"
+    }
+  },
+  "expectedInterpretation": [
+    "N",
+    "N",
+    "N",
+    "N"
+  ]
+}

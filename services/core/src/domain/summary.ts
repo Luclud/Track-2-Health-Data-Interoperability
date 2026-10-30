@@ -1,7 +1,10 @@
 // Filed summary for GET /api/requests/:id (lab values table / rehab excerpt), read back from the FHIR store.
-import type { DocumentRequest, FiledSummary } from "@brieftaube/shared";
+import type { DocumentRequest, FiledOriginal, FiledSummary } from "@brieftaube/shared";
 import type { DiagnosticReport, DocumentReference, Observation } from "fhir/r4.js";
+import { SYSTEMS } from "@brieftaube/shared";
 import type { FhirStore } from "../ports.ts";
+import { type CriticalLimits, criticalFor } from "./critical.ts";
+import { sha256 } from "./tokens.ts";
 
 const EXCERPT_MAX = 300;
 
@@ -15,7 +18,7 @@ export function rehabExcerpt(markdown: string): string {
   return text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX - 1).trimEnd()}…` : text;
 }
 
-export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise<FiledSummary | undefined> {
+export async function filedSummary(fhir: FhirStore, r: DocumentRequest, limits: CriticalLimits = {}): Promise<FiledSummary | undefined> {
   if (r.status !== "filed") return undefined;
   if (r.documentType === "lab-result") {
     const reportId = idOf(r.filedResources, "DiagnosticReport");
@@ -34,6 +37,10 @@ export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise
         unit: /^\{.*\}$/.test(q.unit ?? "") ? "" : (q.unit ?? ""),
         interpretation: code === "H" || code === "L" ? code : "N",
       };
+      const loinc = o.code.coding?.find((c) => c.system === SYSTEMS.loinc)?.code;
+      if (loinc) v.loinc = loinc;
+      const critical = criticalFor(limits, loinc, q.value, q.code);
+      if (critical) v.critical = critical;
       if (range?.low?.value !== undefined) v.low = range.low.value;
       if (range?.high?.value !== undefined) v.high = range.high.value;
       return [v];
@@ -55,4 +62,21 @@ export async function filedSummary(fhir: FhirStore, r: DocumentRequest): Promise
   const p = ref.context?.period;
   if (p?.start && p.end) s.stay = { start: p.start, end: p.end };
   return s;
+}
+
+/** The received document, read back from its FHIR attachment (display only). */
+export async function filedOriginal(fhir: FhirStore, r: DocumentRequest): Promise<FiledOriginal | undefined> {
+  if (r.status !== "filed") return undefined;
+  const type = r.documentType === "lab-result" ? "DiagnosticReport" : "DocumentReference";
+  const id = idOf(r.filedResources, type);
+  if (!id) return undefined;
+  const attachment =
+    type === "DiagnosticReport"
+      ? (await fhir.read<DiagnosticReport>("DiagnosticReport", id))?.presentedForm?.[0]
+      : (await fhir.read<DocumentReference>("DocumentReference", id))?.content[0]?.attachment;
+  if (!attachment?.data) return undefined;
+  const text = Buffer.from(attachment.data, "base64").toString("utf8");
+  const o: FiledOriginal = { storedIn: `${type}/${id}`, contentType: attachment.contentType ?? "text/plain", text, sha256: sha256(text) };
+  if (attachment.title) o.fileName = attachment.title;
+  return o;
 }

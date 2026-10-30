@@ -18,14 +18,16 @@ import { buildProblemTask } from "../fhir/build-task.ts";
 import { createdReferences } from "../fhir/store.ts";
 import type { FilingContext } from "../fhir/types.ts";
 import type { ParsedDocument, ParseResult } from "@brieftaube/shared";
-import { HELD_REASON_DE, RESPONDER_MESSAGES, chatFiled, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
+import { type CriticalLimits, criticalForParsed, loadCriticalLimits } from "./critical.ts";
+import { HELD_REASON_DE, RESPONDER_MESSAGES, type LabRow, chatCritical, CHAT_SENDER_ASSIST, chatFiled, chatFiledHtml, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
 import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
 import { newReference, newToken, sha256 } from "./tokens.ts";
 import { toAuthorizedView, toPublicView, toView } from "./views.ts";
-import { filedSummary } from "./summary.ts";
+import { filedOriginal, filedSummary } from "./summary.ts";
+import { heldReview } from "./review.ts";
 import { chatIdentityMismatch, decideIdentity, identityDisplay, lookupRegister, policyFor } from "./identity.ts";
 
 export function patientSnapshot(p: Patient): PatientSnapshot {
@@ -37,11 +39,18 @@ export function patientSnapshot(p: Patient): PatientSnapshot {
   return snap;
 }
 
+const withCritical = <T>(c: T | undefined) => (c ? { critical: c } : {});
+
 export class CoreRequestService implements Partial<RequestService> {
   protected readonly held: HeldAnswerStore;
 
   constructor(protected readonly d: RequestServiceDeps) {
     this.held = d.held ?? (isHeldAnswerStore(d.repo) ? d.repo : new MemoryHeldAnswerStore());
+  }
+
+  private limits?: CriticalLimits;
+  protected criticalLimits(): CriticalLimits {
+    return (this.limits ??= loadCriticalLimits(this.d.config.criticalValuesFile, this.d.log));
   }
 
   protected now(): Date {
@@ -120,7 +129,7 @@ export class CoreRequestService implements Partial<RequestService> {
       details: { channel: request.recipient.channel, providerMessageId: sent.providerMessageId, warnings: warnings.length },
     });
     await this.post({ roomId: request.roomId, body: chatRequestSent(request), severity: "info" });
-    return { request, warnings };
+    return { request, warnings, link: linkFor(this.d.config.publicBaseUrl, token) };
   }
 
   async listForRoom(roomId: string): Promise<DocumentRequest[]> {
@@ -134,10 +143,16 @@ export class CoreRequestService implements Partial<RequestService> {
     const req = await this.expireIfDue(r);
     const out: RequestDetailResponse = { request: toView(req), audit: await this.d.audit.forRequest(id) };
     try {
-      const summary = await filedSummary(this.d.fhir, req);
+      const summary = await filedSummary(this.d.fhir, req, this.criticalLimits());
       if (summary) out.summary = summary;
+      const original = await filedOriginal(this.d.fhir, req);
+      if (original) out.original = original;
     } catch {
       // Summary is display-only; an unreachable FHIR server must not break the detail view.
+    }
+    if (req.status === "held" && req.heldReason) {
+      const held = await this.held.heldAnswer(req.id);
+      if (held) out.review = heldReview(held.document, held.context.answer.content, req.heldReason, held.method ?? (req.heldReason === "ai-extracted" ? "llm" : "deterministic"));
     }
     return out;
   }
@@ -255,6 +270,7 @@ export class CoreRequestService implements Partial<RequestService> {
     const register = await lookupRegister(r, identity, this.d.register);
     const ctx: FilingContext = {
       request: r,
+      ...(answer.senderAssist ? { senderAssist: true } : {}),
       identity,
       register,
       policy: policyFor(r),
@@ -263,8 +279,8 @@ export class CoreRequestService implements Partial<RequestService> {
       answerSentAt: at,
       filedAt: at,
     };
-    if (parsed.method === "llm") return this.hold(r, "ai-extracted", doc, ctx);
-    if (registerApplies(r) && !register.listed) return this.hold(r, "not-in-register", doc, ctx);
+    if (parsed.method === "llm") return this.hold(r, "ai-extracted", doc, ctx, "llm");
+    if (registerApplies(r) && !register.listed) return this.hold(r, "not-in-register", doc, ctx, "deterministic");
     const filedResources = await this.file(r, doc, ctx);
     return { result: "filed", filedResources };
   }
@@ -278,9 +294,9 @@ export class CoreRequestService implements Partial<RequestService> {
   }
 
   /** Not filed automatically; Dr. Hofer decides in the widget (CORE-11). */
-  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", doc: ParsedDocument, ctx: FilingContext): Promise<AnswerOutcome> {
+  protected async hold(r: DocumentRequest, reason: "ai-extracted" | "not-in-register", doc: ParsedDocument, ctx: FilingContext, method: "deterministic" | "llm"): Promise<AnswerOutcome> {
     const { request: _r, newUuid: _u, ...context } = ctx;
-    await this.held.saveHeld(r.id, { document: doc, context });
+    await this.held.saveHeld(r.id, { document: doc, context, method });
     r.status = "held";
     r.heldReason = reason;
     await this.d.repo.update(r);
@@ -344,6 +360,8 @@ export class CoreRequestService implements Partial<RequestService> {
     delete r.heldReason;
     delete r.lastProblem;
     await this.d.repo.update(r);
+    const rows: LabRow[] = doc.kind === "lab-result" ? doc.values.map((value) => ({ value, ...withCritical(criticalForParsed(this.criticalLimits(), value)) })) : [];
+    const critical = rows.filter((x) => x.critical).map(({ value: v, critical: c }) => ({ loinc: v.loinc, testName: v.testName, value: v.value, unit: v.unitText, rule: c!.rule }));
     const count = (t: string) => filed.filter((x) => x.startsWith(`${t}/`));
     const main = count(doc.kind === "lab-result" ? "DiagnosticReport" : "DocumentReference")[0];
     const obs = count("Observation").length;
@@ -357,11 +375,13 @@ export class CoreRequestService implements Partial<RequestService> {
         : { kind: "system", id: "brieftaube", display: "Brieftaube" },
       what: `${releasedBy ? `Released by ${releasedBy.displayName}: filed` : "Filed"} ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
       outcome: "success",
-      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}) },
+      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}), ...(critical.length ? { criticalValues: critical } : {}), ...(ctx.senderAssist ? { senderAssist: true } : {}) },
     });
     const summary = doc.kind === "rehab-discharge-report" ? await rehabSummary(this.d.llm, doc.markdown) : undefined;
-    const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "");
-    await this.post({ roomId: r.roomId, body, severity: "success" });
+    const assisted = ctx.senderAssist ? `\n${CHAT_SENDER_ASSIST}` : "";
+    const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "") + assisted;
+    if (critical.length) await this.post({ roomId: r.roomId, ...chatCritical(r, rows), severity: "alert" });
+    await this.post({ roomId: r.roomId, body, ...(doc.kind === "lab-result" ? { html: chatFiledHtml(r, rows, ctx.register) + (assisted ? `<p>${CHAT_SENDER_ASSIST}</p>` : "") } : {}), severity: "success" });
     return filed;
   }
 

@@ -6,6 +6,7 @@ export function toView(r: DocumentRequest): DocumentRequestView {
     id: r.id,
     reference: r.reference,
     createdAt: r.createdAt,
+    expiresAt: r.expiresAt,
     status: r.status,
     documentType: r.documentType,
     patient: r.patient,
@@ -14,6 +15,7 @@ export function toView(r: DocumentRequest): DocumentRequestView {
   };
   if (r.heldReason) v.heldReason = r.heldReason;
   if (r.lastProblem) v.lastProblem = r.lastProblem;
+  if (r.reminderSentAt) v.reminderSentAt = r.reminderSentAt;
   return v;
 }
 

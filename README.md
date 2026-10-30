@@ -4,7 +4,7 @@
 
 AIM Austria Hackathon 2026 · Track 2: Health Data Interoperability. All data in this repository is synthetic.
 
-> Status: **v1 under construction.** The plan, contracts and golden FHIR examples are in place; the implementation is being built from `docs/TASKS.md`. Sections marked _(TBD)_ are filled in when the features land.
+> Status: **v1 complete** (see [`docs/MORNING-REPORT.md`](docs/MORNING-REPORT.md)), **v2 add-ons** on top (see [Neu in v2](#neu-in-v2--new-in-v2) and [`docs/V2-REPORT.md`](docs/V2-REPORT.md)).
 
 ## The problem
 
@@ -18,6 +18,36 @@ Dr. Lena Hofer works inside PGK, a closed document network on Matrix. The lab, t
 4. Only then do they see which patient and which document is requested, and answer with a short form plus the file.
 5. Brieftaube checks that the **answer is about the right patient**, turns it into **FHIR R4** (Observations with LOINC codes, DiagnosticReport or DocumentReference, Provenance), stores it on the FHIR server and **tells Dr. Hofer in Matrix**.
 6. Every step is **audited**; misdeliveries (wrong address, forwarded email, wrong patient) are caught and reported.
+
+## Neu in v2 / New in v2
+
+v2 answers three questions a jury asks after the v1 demo. Plan and acceptance criteria: [`docs/TASKS-V2.md`](docs/TASKS-V2.md); results: [`docs/V2-REPORT.md`](docs/V2-REPORT.md).
+
+**1. "Can I be the outside person, on my own phone, now?"**
+- `scripts/jury.sh` starts everything plus a Cloudflare quick tunnel, so the outside portal has a public `https://….trycloudflare.com` URL. `scripts/jury.sh --lan` uses `http://<LAN IP>:3000` instead (phone on the same Wi-Fi or the laptop's hotspot). Step-by-step guide and fallbacks: [`docs/JURY-DEMO.md`](docs/JURY-DEMO.md).
+- With `JURY_MODE=true` (set by `jury.sh`, off by default): `Jury-Schnellauswahl` in the request form, and after sending a **QR code** of the link in the doctor UI (in normal operation the link only goes out by email/SMS). The answer page shows two labelled demo buttons (`Beispielbefund einsetzen (Demo)`, `Beispiel: falsche Patientin (Demo)` to trigger M3 live). The simulated ID Austria page is comfortable on a 360 px phone; the judge types their own name.
+
+**2. "Why should I trust values an AI read?"**
+- Held answers (AI-read, or sender not in the physician register) show **evidence**: every extracted value is linked to the line of the original document that contains it, side by side in the doctor UI.
+- `npm run ai:eval` forces the AI path on every fixture with an expectation, compares the result and runs a **hallucination trap** (one value changed to a number that is not in the source must be rejected). Report: [`docs/AI-EVAL.md`](docs/AI-EVAL.md). Real run: `LLM_PROVIDER=anthropic LLM_API_KEY=… npm run ai:eval`; without a key the report is titled **MOCK**.
+- Anthropic provider defaults to `claude-sonnet-5-5`, with a 20 s timeout and one retry; any failure ends in the friendly "could not read" path and is never filed.
+
+**3. "Does this help on a ward?"**
+- **Critical values:** `infra/critical-values.json` (demo panic limits per LOINC, each clinic sets its own) → a 🚨 message in the room before the ✅ message.
+- **Readable values:** the ✅ message has a table (German test names, `1,0`, `10⁹/L`, reference range, ↑ ↓ 🚨), the doctor UI uses the same formatting.
+- **Status board:** `Problem` · `Zur Prüfung` · `Wartet auf Antwort` (with "läuft ab in …" and 🔔 after a reminder) · `Abgelegt`, with counters; `!brieftaube status` uses the same groups.
+- **Reminders and expiry:** one reminder before the link expires, with a new link (the old one stops working) and an extended deadline; expired requests are closed actively. Notifications still pass the privacy guard. Settings: `REMINDER_BEFORE_EXPIRY_MINUTES`, `SCHEDULER_INTERVAL_SECONDS`.
+- **Eingangsbestätigung:** the sender gets a printable receipt (reference, time, verified sender, SHA-256 of the document), without medical content.
+
+Jury mode in short: `scripts/jury.sh` (or `scripts/jury.sh --lan`), open the printed doctor URL on the laptop, press `Jury-Schnellauswahl`, enter the judge's name, send, let the judge scan the QR code.
+
+## Optional: KI-Hilfe für Absender
+
+- Opt-in checkbox on the answer page („KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen“), only with `SENDER_ASSIST=true` (on in `scripts/demo.sh` and `scripts/jury.sh`). If it is off, the page is unchanged.
+- It ranks the sender's own archive for the open request: importance, a one-sentence reason and an evidence line that is checked literally against the document (otherwise „nicht belegt“). „Übernehmen“ only fills the form; nothing is sent until the sender presses „Sicher senden“.
+- Before any AI runs, documents whose name or birth date do not match the request patient are removed and only counted („2 Dokumente anderer Personen wurden ausgeblendet“).
+- Real use: a local model in the sender's practice (e.g. Ollama), so documents leave the practice only with „Sicher senden“. Prototype: a synthetic demo archive on our server (`scenario/sender-archive/`), ranked by Claude if `LLM_PROVIDER` is set (badge „KI: <model> (Demo über Cloud, nur synthetische Daten)“), otherwise by the precomputed `ranking.mock.json` (badge „KI-Vorschlag (Demo, MOCK)“). LLM errors and timeouts fall back to the mock.
+- Code: `services/core/src/portal/assist.ts`; test the click path with `npx playwright test -c tests/playwright.config.ts assist`.
 
 ## Architecture
 
@@ -71,12 +101,12 @@ Checks: `npm run check` (typecheck, unit tests, HL7 validation) · `npm run e2e`
 
 ## Metrics on the scenario
 
-Generated by `npm run metrics` from real runs of `npm run e2e` and `npm run e2e:ui` on a clean clone of `main` (details: [`docs/METRICS.md`](docs/METRICS.md)).
+Generated by `npm run metrics` from real runs of `npm run e2e` and `npm run e2e:ui` on `v2-addons` (details: [`docs/METRICS.md`](docs/METRICS.md)).
 
 | Metric | Target | Result |
 |---|---|---|
 | FHIR validation errors | 0 | **0** (HL7 validator; every resource the scenario filed, read back from HAPI, plus the golden examples) |
-| Outside person: installs / accounts / time | 0 / 0 / < 2 min | **0 / 0 / 0.6 s** at scripted speed (Playwright, phone viewport; a human adds reading time) |
+| Outside person: installs / accounts / time | 0 / 0 / < 2 min | **0 / 0 / 0.4 s** at scripted speed (Playwright, phone viewport; a human adds reading time) |
 | Misdeliveries caught | 3 of 3 | **3 of 3** (M1 wrong address, M2 forwarded link, M3 wrong patient) |
 | Audit coverage | 6 of 6 | **6 of 6** (who / what / when per step, also mirrored as FHIR `AuditEvent`) |
 
@@ -90,11 +120,17 @@ Generated by `npm run metrics` from real runs of `npm run e2e` and `npm run e2e:
 - Physicians not in the (simulated) register and AI-read documents are **held**, not filed, until Dr. Hofer releases or rejects them (API `POST /api/requests/:id/release|reject`).
 - Doctor auth: Matrix OpenID token from the widget verified at Synapse (`AUTH_MODE=matrix`), or `X-Dev-User` for the standalone demo (`AUTH_MODE=dev`).
 - Six-step audit trail (SQLite + `data/audit.jsonl` + FHIR `AuditEvent`), `!brieftaube status` bot command.
+- v2 (also covered by `npm run e2e` / `npm run e2e:ui`): critical-value 🚨 message, values table in the ✅ message, evidence for held answers, jury link only in jury mode, demo buttons only in jury mode, receipt with correct SHA-256, reminder with link rotation (new link works, old one doesn't), QR modal, German value formatting, status board.
+- `scripts/jury.sh` (tunnel) and `scripts/jury.sh --lan` were run on a Linux VM: the jury link used the public `https://….trycloudflare.com` URL (or the LAN IP) and the outside portal loaded through it.
 
 **Doesn't / simulated:**
 - ID Austria, the physician register (Ärzteliste), email delivery (Mailpit) and SMS (simulator page) are simulated; no real external service is called.
 - The LLM fallback for documents outside the standard format is implemented and unit-tested with a mock provider, but was not run against a real LLM (no key configured). Without a key, such documents are rejected with a friendly message.
 - The Element path needs a one-time widget permission click; the standalone website needs none.
+- The AI evaluation in [`docs/AI-EVAL.md`](docs/AI-EVAL.md) is a **MOCK** run (no LLM key was available): it proves the measurement and the verification, not the reading quality of a real model.
+- The jury flow was not tried on a physical phone in this run. Quick tunnels have no uptime guarantee and a fresh `trycloudflare.com` name can take ~30 s to resolve; `--lan` is the fallback.
+- `jury.sh` starts the core with `AUTH_MODE=matrix`; `npm run e2e` expects the default core (`npm run dev`, `AUTH_MODE=dev`).
+
 ## Repository map
 
 ```

@@ -1,0 +1,16 @@
+{
+  "lab-result": {
+    "labor-gerinnung-2026-10-22": { "importance": "hoch", "reason": "Aktuelle Gerinnungswerte (INR, aPTT, Fibrinogen) vom 22.10.2026 – genau das, was vor der geplanten Operation gebraucht wird.", "evidence": "INR (prothrombin time) | 1.0" },
+    "labor-gerinnung-2024-03-05": { "importance": "mittel", "reason": "Älterer Gerinnungsbefund von 2024 – als Vergleichswert nützlich, aber nicht aktuell.", "evidence": "Sample taken: 5 March 2024, 07:45" },
+    "labor-blutbild-2026-09-14": { "importance": "niedrig", "reason": "Blutbild mit Thrombozyten, aber ohne Gerinnungswerte wie INR oder aPTT.", "evidence": "Platelets | 268" },
+    "rehab-entlassungsbericht": { "importance": "niedrig", "reason": "Reha-Bericht nach der Hüftoperation; nennt die Thromboseprophylaxe, enthält aber keine Laborwerte.", "evidence": "Rivaroxaban 10 mg once a day" },
+    "rechnung-2026-10": { "importance": "nicht relevant", "reason": "Rechnung ohne medizinische Werte.", "evidence": "Invoice number: LK-2026-10-4471" }
+  },
+  "rehab-discharge-report": {
+    "rehab-entlassungsbericht": { "importance": "hoch", "reason": "Entlassungsbericht der Reha Waldblick – genau das angefragte Dokument.", "evidence": "Stay: 2 to 23 September 2026" },
+    "labor-blutbild-2026-09-14": { "importance": "niedrig", "reason": "Blutbild aus der Reha-Zeit, aber kein Bericht über den Verlauf.", "evidence": "Requested by: Reha Waldblick" },
+    "labor-gerinnung-2026-10-22": { "importance": "niedrig", "reason": "Aktueller Gerinnungsbefund, aber kein Reha-Bericht.", "evidence": "INR (prothrombin time) | 1.0" },
+    "labor-gerinnung-2024-03-05": { "importance": "nicht relevant", "reason": "Alter Laborbefund von 2024, lange vor dem Reha-Aufenthalt.", "evidence": "Sample taken: 5 March 2024, 07:45" },
+    "rechnung-2026-10": { "importance": "nicht relevant", "reason": "Rechnung ohne medizinische Inhalte.", "evidence": "Invoice number: LK-2026-10-4471" }
+  }
+}

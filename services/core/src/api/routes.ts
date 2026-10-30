@@ -2,7 +2,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type {
   ApiError, CreateRequestBody, CreateRequestResponse, DocumentType, HeldDecisionResponse, MeResponse,
-  PatientSnapshot, RecipientCheckBody, RecipientCheckResponse, Requester,
+  PatientSnapshot, RecipientCheckBody, RecipientCheckResponse, Requester, UiConfigResponse,
 } from "@brieftaube/shared";
 import type { Patient } from "fhir/r4.js";
 import type { Deps } from "../container.ts";
@@ -79,9 +79,14 @@ export async function registerApiRoutes(app: FastifyInstance, deps: Deps): Promi
     });
 
     api.addHook("onRequest", async (req) => {
-      if (req.url.startsWith("/api/chat/") || req.url.startsWith("/api/dev/")) return;
+      if (req.url.startsWith("/api/chat/") || req.url.startsWith("/api/dev/") || req.url.split("?")[0] === "/api/ui-config") return;
       req.requester = await auth.authenticate(req.headers);
     });
+
+    api.get("/api/ui-config", async (): Promise<UiConfigResponse> => ({
+      juryMode: deps.config.juryMode,
+      llmEnabled: deps.config.llmProvider !== "none",
+    }));
 
     api.get("/api/me", async (req): Promise<MeResponse> => {
       const r = me(req);
@@ -113,8 +118,9 @@ export async function registerApiRoutes(app: FastifyInstance, deps: Deps): Promi
         const warnings = await deps.requests.checkRecipient(me(req), body.recipient);
         if (warnings.length) throw new DomainError("recipient-warnings", "Bitte die Warnungen zur Adresse bestätigen.", 409, { warnings });
       }
-      const { request, warnings } = await deps.requests.createRequest(me(req), body);
+      const { request, warnings, link } = await deps.requests.createRequest(me(req), body);
       const res: CreateRequestResponse = { request: toView(request), warnings };
+      if (deps.config.juryMode && link) res.juryLink = link;
       return reply.code(201).send(res);
     });
 

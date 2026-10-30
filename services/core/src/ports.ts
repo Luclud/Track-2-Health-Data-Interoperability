@@ -86,6 +86,10 @@ export interface RequestRepository {
   byId(id: string): Promise<DocumentRequest | undefined>;
   byTokenHash(tokenHash: string): Promise<DocumentRequest | undefined>;
   listByRoom(roomId: string): Promise<DocumentRequest[]>;
+  /** All still-open requests (sent | opened | identity-failed | verified | rejected) across all rooms; for the scheduler. */
+  listOpen(): Promise<DocumentRequest[]>;
+  /** Replaces the stored token hash (link rotation on reminder). Throws if the request does not exist. */
+  rotateTokenHash(id: string, tokenHash: string): Promise<void>;
   /** Addresses this requester has used before (for the "unknown contact" warning) */
   knownAddresses(requesterMatrixId: string): Promise<string[]>;
 }
@@ -132,6 +136,8 @@ export interface AnswerInput {
   /** Markdown text: uploaded file content or pasted text */
   content: string;
   fileName?: string;
+  /** ASSIST-4: the sender used the KI-Hilfe and confirmed the suggested document. */
+  senderAssist?: boolean;
 }
 
 export type AnswerOutcome =
@@ -147,7 +153,8 @@ export interface RequestMeta {
 
 export interface RequestService {
   checkRecipient(requester: Requester, body: { channel: "email" | "sms"; address: string; displayName: string }): Promise<RecipientWarning[]>;
-  createRequest(requester: Requester, body: CreateRequestBody): Promise<{ request: DocumentRequest; warnings: RecipientWarning[] }>;
+  /** `link` is the recipient's link; the API returns it to the UI only in JURY_MODE. */
+  createRequest(requester: Requester, body: CreateRequestBody): Promise<{ request: DocumentRequest; warnings: RecipientWarning[]; link?: string }>;
   listForRoom(roomId: string): Promise<DocumentRequest[]>;
   detail(id: string): Promise<RequestDetailResponse | undefined>;
 

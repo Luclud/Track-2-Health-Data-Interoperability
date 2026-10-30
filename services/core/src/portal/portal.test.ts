@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import formbody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Deps } from "../container.ts";
@@ -12,6 +13,8 @@ import { MockPhysicianRegister } from "../register/index.ts";
 import { FakeRequestService, makeFakeRequest } from "./__fakes__/fake-request-service.ts";
 import { registerPortalRoutes } from "./routes.ts";
 import { validateAnswer } from "./views.ts";
+import { createDocumentParser } from "../parser/index.ts";
+import type { ParsedDocument } from "@brieftaube/shared";
 
 const base = "http://localhost:3000";
 const labDoc = readFileSync(new URL("../../../../scenario/documents/lab-result-maria-beispiel.md", import.meta.url), "utf8");
@@ -19,14 +22,14 @@ const labDoc = readFileSync(new URL("../../../../scenario/documents/lab-result-m
 let app: FastifyInstance;
 let svc: FakeRequestService;
 
-async function build() {
+async function build(juryMode = false, senderAssist = false) {
   svc = new FakeRequestService(
     makeFakeRequest(),
     makeFakeRequest({ id: "req-2", token: "tok-old" }, { status: "expired" }),
     makeFakeRequest({ id: "req-3", token: "tok-done" }, { status: "answered" }),
   );
   const deps = {
-    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid` },
+    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid`, juryMode, senderAssist },
     eid: new MockIdAustria({ eidIssuerUrl: `${base}/mock-eid` }),
     register: new MockPhysicianRegister(),
     requests: svc,
@@ -89,7 +92,7 @@ function multipartBody(fields: Record<string, string>, file?: { name: string; co
 
 const maria = { patientGiven: "Maria", patientFamily: "Beispiel", patientBirthDate: "1961-03-12" };
 
-beforeEach(build);
+beforeEach(() => build());
 
 describe("portal landing", () => {
   it("shows requester, recipient, reference and expiry — nothing about the patient or document type", async () => {
@@ -205,6 +208,42 @@ describe("answer", () => {
     expect(res.body).toContain("noch kurz geprüft");
   });
 
+  describe("receipt (V2-RCPT-1)", () => {
+    const receiptOf = (body: string) => body.match(/<section class="receipt"[\s\S]*?<\/section>/)?.[0] ?? "";
+    const sha = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
+
+    it("filed: reference, Vienna time, verified sender, SHA-256 of the uploaded text, print button", async () => {
+      const { jar } = await loginAs("eva-brandl");
+      const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody(maria, { name: "lab.md", content: labDoc }), jar) });
+      const r = receiptOf(res.body);
+      expect(r).toContain("Eingangsbestätigung");
+      expect(r).toContain(makeFakeRequest().view.reference);
+      expect(r).toMatch(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2} Uhr/);
+      expect(r).toContain("Brandl");
+      const full = sha(labDoc);
+      expect(r).toContain(`<code>${full.slice(0, 16)}</code>`);
+      expect(r).toMatch(new RegExp(`<details>[\\s\\S]*${full}[\\s\\S]*</details>`));
+      expect(r).toContain('onclick="window.print()"');
+      expect(r).toContain("Bestätigung drucken / als PDF speichern");
+    });
+
+    it("held: hash of pasted text (BOM stripped, as submitted); no medical or patient content", async () => {
+      const { jar } = await loginAs("eva-brandl");
+      svc.nextOutcome = { result: "held", reason: "not-in-register" };
+      const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc }), jar) });
+      const r = receiptOf(res.body);
+      const submitted = (svc.calls.find((c) => c.method === "submitAnswer")!.args[2] as { content: string }).content;
+      expect(r).toContain(sha(submitted).slice(0, 16));
+      for (const word of ["Maria", "1961", "12.03.", "Laborbefund", "Befund", "Rehab", "Hämoglobin", "mg/dl"]) expect(r).not.toContain(word);
+    });
+
+    it("print stylesheet shows only the receipt", async () => {
+      const css = (await app.inject({ url: "/r/static/portal.css" })).body;
+      expect(css).toMatch(/@media print\{.*body \*\{visibility:hidden\}/);
+      expect(css).toContain(".receipt,.receipt *{visibility:visible}");
+    });
+  });
+
   it("wrong patient (M3) -> friendly rejection, form again, session kept", async () => {
     const { jar } = await loginAs("eva-brandl");
     const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ patientGiven: "Max", patientFamily: "Beispiel", patientBirthDate: "1960-01-01", content: "# x" }), jar) });
@@ -240,6 +279,175 @@ describe("answer", () => {
     const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: "# x" }), jar) });
     expect(res.statusCode).toBe(500);
     expect(res.body).toContain("Etwas ist schiefgelaufen");
+  });
+});
+
+describe("jury demo buttons (V2-JURY-2)", () => {
+  const SAMPLE = "Beispielbefund einsetzen (Demo)";
+  const WRONG = "Beispiel: falsche Patientin (Demo)";
+  const textarea = (body: string) => {
+    const m = /<textarea[^>]*>([\s\S]*?)<\/textarea>/.exec(body);
+    return (m?.[1] ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  };
+  const parsedPatient = (md: string) => {
+    const r = createDocumentParser().parse(md);
+    expect(r.ok).toBe(true);
+    return (r.document as ParsedDocument).patient;
+  };
+
+  it("are absent by default, also when ?demo= is forced", async () => {
+    const { jar } = await loginAs("eva-brandl");
+    const form = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(form.body).not.toContain(SAMPLE);
+    expect(form.body).not.toContain(WRONG);
+    expect(form.body).not.toContain("demo=");
+    const forced = await app.inject({ url: "/r/tok-eva/answer?demo=beispiel", headers: { cookie: jar.header() } });
+    expect(textarea(forced.body)).toBe("");
+    expect(forced.body).not.toContain('value="Maria"');
+  });
+
+  it("are present in jury mode and clearly labelled Demo", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const form = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(form.body).toContain(SAMPLE);
+    expect(form.body).toContain(WRONG);
+    expect(form.body).toContain('href="/r/tok-eva/answer?demo=beispiel#content"');
+    expect(form.body).not.toContain('value="Maria"'); // nothing prefilled until a demo button is used
+  });
+
+  it("the sample parses to the requested patient and is filed", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?demo=beispiel", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(parsedPatient(md)).toEqual({ name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" });
+    expect(md).toBe(labDoc);
+    expect(res.body).toContain('value="Maria"');
+    expect(res.body).toContain('value="1961-03-12"');
+    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md }), jar) });
+    expect(sent.body).toContain("Vielen Dank");
+  });
+
+  it("the wrong-patient sample is the Max Beispiel document (M3)", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?demo=falsche-patientin", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(parsedPatient(md)).toEqual({ name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" });
+    expect(res.body).toContain('value="Maria"'); // the sender thinks it is Maria's
+  });
+
+  it("follows the requested patient and document type", async () => {
+    svc = new FakeRequestService();
+    const { demoDocument } = await import("./demo.ts");
+    const johann = { patient: { name: { given: ["Johann"], family: "Muster" }, birthDate: "1955-07-01" }, documentType: "rehab-discharge-report" as const };
+    const r = createDocumentParser().parse(demoDocument("beispiel", johann));
+    expect(r.document).toMatchObject({ kind: "rehab-discharge-report", patient: { name: { given: ["Johann"], family: "Muster" }, birthDate: "1955-07-01" } });
+    expect(parsedPatient(demoDocument("falsche-patientin", johann)).name.given).toEqual(["Max"]);
+    const max = { patient: { name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" }, documentType: "lab-result" as const };
+    expect(parsedPatient(demoDocument("falsche-patientin", max)).name.given).toEqual(["Maria"]);
+  });
+});
+
+describe("sender assist (ASSIST-2)", () => {
+  const BOX = "KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen";
+  const ids = (body: string) => [...body.matchAll(/data-id="([^"]+)"/g)].map((m) => m[1]);
+  const textarea = (body: string) =>
+    (/<textarea[^>]*>([\s\S]*?)<\/textarea>/.exec(body)?.[1] ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+
+  it("is off by default: no checkbox, and ?assist=1&pick= changes nothing", async () => {
+    const { jar } = await loginAs("eva-brandl");
+    const plain = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(plain.body).not.toContain(BOX);
+    expect(plain.body).not.toContain("assist");
+    const forced = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22", headers: { cookie: jar.header() } });
+    expect(forced.body).toBe(plain.body);
+  });
+
+  it("enabled: checkbox with hint and noscript link above the file input; no list until ticked", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(res.body).toContain(BOX);
+    expect(res.body).toContain("Dokumente verlassen die Praxis erst mit „Sicher senden“.");
+    expect(res.body).toContain('data-on="/r/tok-eva/answer?assist=1#assist"');
+    expect(res.body).toContain('<noscript><p><a href="/r/tok-eva/answer?assist=1#assist">');
+    expect(res.body.indexOf(BOX)).toBeLessThan(res.body.indexOf('id="file"'));
+    expect(res.body).not.toContain('id="assist"');
+    expect(textarea(res.body)).toBe("");
+  });
+
+  it("?assist=1 without a session shows nothing about the patient", async () => {
+    await build(false, true);
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22" });
+    expect(res.statusCode).toBe(303);
+    expect(res.headers.location).toBe("/r/tok-eva");
+    expect(res.body).not.toContain("Maria");
+    expect(res.body).not.toContain("Gerinnung");
+  });
+
+  it("ticked: ranked list, current clotting panel first, other patients hidden, MOCK badge", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1", headers: { cookie: jar.header() } });
+    expect(res.statusCode).toBe(200);
+    expect(ids(res.body)[0]).toBe("labor-gerinnung-2026-10-22");
+    expect(ids(res.body)).toHaveLength(5);
+    expect(res.body).not.toContain("labor-andere-patientin");
+    expect(res.body).not.toContain("labor-namensgleich");
+    expect(res.body).toContain("2 Dokumente anderer Personen wurden ausgeblendet");
+    expect(res.body).toContain("KI-Vorschlag (Demo, MOCK)");
+    expect(res.body).toContain("<b>Gesucht für:</b> Bitte Gerinnung vor dem Eingriff.");
+    expect(res.body).toContain("Beleg (Zeile ");
+    expect(res.body).toContain('href="/r/tok-eva/answer?assist=1&amp;pick=labor-gerinnung-2026-10-22#content"');
+    expect(res.body).toMatch(/id="assist-toggle" checked/);
+    expect(textarea(res.body)).toBe("");
+    expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
+  });
+
+  it("„Übernehmen“ fills patient and document, does not send; „Sicher senden“ files it", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(md).toBe(labDoc);
+    expect(res.body).toContain("Vorschlag übernommen: Laborbefund Gerinnung. Bitte prüfen Sie das Dokument und senden Sie es dann.");
+    expect(res.body).toContain('value="Maria"');
+    expect(res.body).toContain('value="1961-03-12"');
+    expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
+    expect(res.body).toContain('<input type="hidden" name="assisted" value="1">');
+    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md, assisted: "1" }), jar) });
+    expect(sent.body).toContain("Vielen Dank – gesendet!");
+    const call = svc.calls.find((c) => c.method === "submitAnswer")!;
+    expect(call.args[2]).toMatchObject({ content: labDoc, senderAssist: true });
+  });
+
+  it("ASSIST-4: no hidden assisted field without „Übernehmen“; a plain POST is not marked", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const list = await app.inject({ url: "/r/tok-eva/answer?assist=1", headers: { cookie: jar.header() } });
+    expect(list.body).not.toContain('name="assisted"');
+    await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc }), jar) });
+    expect(svc.calls.find((c) => c.method === "submitAnswer")!.args[2]).not.toHaveProperty("senderAssist");
+  });
+
+  it("ASSIST-4: assisted=1 is ignored while SENDER_ASSIST is off", async () => {
+    await build(false, false);
+    const { jar } = await loginAs("eva-brandl");
+    await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc, assisted: "1" }), jar) });
+    expect(svc.calls.find((c) => c.method === "submitAnswer")!.args[2]).not.toHaveProperty("senderAssist");
+  });
+
+  it("an unknown or hidden id shows an error and fills nothing", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    for (const id of ["gibt-es-nicht", "labor-andere-patientin", "labor-namensgleich"]) {
+      const res = await app.inject({ url: `/r/tok-eva/answer?assist=1&pick=${id}`, headers: { cookie: jar.header() } });
+      expect(res.body).toContain("nicht gefunden. Es wurde nichts übernommen.");
+      expect(textarea(res.body)).toBe("");
+      expect(res.body).not.toContain('value="Maria"');
+    }
   });
 });
 

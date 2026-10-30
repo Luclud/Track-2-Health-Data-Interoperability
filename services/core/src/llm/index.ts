@@ -8,7 +8,14 @@ import { EXTRACTION_SYSTEM_PROMPT, PARSED_DOCUMENT_SCHEMA, PARSED_DOCUMENT_SCHEM
 import { verifyLlmDocument } from "./verify.ts";
 
 type Params = Parameters<LlmClient["completeJson"]>[0];
-const TIMEOUT_MS = 30_000;
+export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+
+export interface HttpOptions {
+  timeoutMs?: number;
+  retryDelayMs?: number;
+}
+const TIMEOUT_MS = 20_000;
+const RETRY_DELAY_MS = 1_000;
 
 export class DisabledLlmClient implements LlmClient {
   readonly enabled = false;
@@ -33,35 +40,61 @@ function stripFences(text: string): string {
   return (m ? m[1]! : text).trim();
 }
 
-async function postJson(fetchImpl: typeof fetch, url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
-  const res = await fetchImpl(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`LLM HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+class RetryableError extends Error {}
+
+async function postOnce(fetchImpl: typeof fetch, url: string, headers: Record<string, string>, body: unknown, timeoutMs: number): Promise<unknown> {
+  let res: Response;
+  try {
+    res = await fetchImpl(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    const name = (err as Error).name;
+    if (name === "TimeoutError" || name === "AbortError") throw new RetryableError(`LLM timeout after ${timeoutMs / 1000} s`);
+    throw err;
+  }
+  if (!res.ok) {
+    const msg = `LLM HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`;
+    throw res.status === 429 || res.status >= 500 ? new RetryableError(msg) : new Error(msg);
+  }
   return res.json();
 }
 
-/** Anthropic Messages API; structured output via a forced tool call. */
+/** POST with a timeout and exactly one retry on 429, 5xx or timeout. */
+async function postJson(fetchImpl: typeof fetch, url: string, headers: Record<string, string>, body: unknown, opts: HttpOptions = {}): Promise<unknown> {
+  const timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
+  try {
+    return await postOnce(fetchImpl, url, headers, body, timeoutMs);
+  } catch (err) {
+    if (!(err instanceof RetryableError)) throw err;
+    await new Promise((r) => setTimeout(r, opts.retryDelayMs ?? RETRY_DELAY_MS));
+    return postOnce(fetchImpl, url, headers, body, timeoutMs);
+  }
+}
+
+/** Anthropic Messages API; structured output via a tool call (text JSON as fallback). */
 export class AnthropicLlmClient implements LlmClient {
   readonly enabled = true;
   constructor(
     private readonly apiKey: string,
-    private readonly model = "claude-sonnet-4-5",
+    private readonly model = DEFAULT_ANTHROPIC_MODEL,
     private readonly baseUrl = "https://api.anthropic.com",
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly http: HttpOptions = {},
   ) {}
   async completeJson(p: Params): Promise<unknown> {
     const data = (await postJson(this.fetchImpl, `${this.baseUrl.replace(/\/$/, "")}/v1/messages`, { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" }, {
       model: this.model,
       max_tokens: 4096,
-      system: p.system,
+      // Newer models reject a forced tool_choice ("tool"/"any"), so ask for the tool call in the prompt instead.
+      system: `${p.system}\n\nReturn the result only by calling the tool \`${p.schemaName}\`.`,
       messages: [{ role: "user", content: p.user }],
       tools: [{ name: p.schemaName, description: "Return the extracted data", input_schema: p.jsonSchema }],
-      tool_choice: { type: "tool", name: p.schemaName },
-    })) as { content?: { type: string; input?: unknown; text?: string }[] };
+      tool_choice: { type: "auto" },
+    }, this.http)) as { content?: { type: string; input?: unknown; text?: string }[] };
     const tool = data.content?.find((c) => c.type === "tool_use");
     if (tool?.input !== undefined) return tool.input;
     const text = data.content?.find((c) => c.type === "text")?.text;
@@ -78,6 +111,7 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
     private readonly apiKey: string,
     private readonly model: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly http: HttpOptions = {},
   ) {}
   async completeJson(p: Params): Promise<unknown> {
     const base = this.baseUrl.replace(/\/$/, "");
@@ -89,7 +123,7 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
         { role: "user", content: p.user },
       ],
       response_format: { type: "json_schema", json_schema: { name: p.schemaName, schema: p.jsonSchema } },
-    })) as { choices?: { message?: { content?: string } }[] };
+    }, this.http)) as { choices?: { message?: { content?: string } }[] };
     const content = data.choices?.[0]?.message?.content;
     if (!content) throw new Error("LLM returned no content");
     return JSON.parse(stripFences(content));

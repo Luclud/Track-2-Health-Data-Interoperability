@@ -1,5 +1,11 @@
 # Rules for coding agents (read fully before you start)
 
+> **v2 rules (override everything below where they differ)**
+> - v1 is finished and frozen on `main`. You work on **`v2-addons`**: create every branch from `origin/v2-addons`, every PR targets `v2-addons`, "rebase on main" below means "rebase on `v2-addons`".
+> - **Never** push, merge or open PRs into `main`, and never touch the branches `main` and `v1-frozen`. Only a human merges `v2-addons` into `main`.
+> - Your tasks are in **`docs/TASKS-V2.md`** (not `docs/TASKS.md`). Prompts: `docs/agents/v2/`.
+> - v1 behaviour must not regress: all existing tests stay green, 0 FHIR validator errors, privacy rule unchanged.
+
 You are building **Brieftaube** for the AIM Austria hackathon, Track 2 (health data interoperability). The challenge is in `scenario/` and summarised in `README.md`. The plan is in `docs/`:
 
 1. `docs/TASKS.md` — your lane and tasks, acceptance criteria. **Start here.**

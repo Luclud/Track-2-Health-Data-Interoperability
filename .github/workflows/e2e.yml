@@ -4,7 +4,7 @@
 name: E2E
 on:
   push:
-    branches: [main]
+    branches: [main, v2-addons]
   pull_request:
   workflow_dispatch:
 

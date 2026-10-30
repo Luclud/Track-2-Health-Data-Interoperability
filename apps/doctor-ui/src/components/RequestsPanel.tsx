@@ -1,9 +1,12 @@
 import { useState } from "react";
-import type { AuditEntry, DocumentRequestView, FiledSummary, RequestDetailResponse } from "@brieftaube/shared";
+import { formatValueDe, labNameDe, unitDisplay, type AuditEntry, type DocumentRequestView, type FiledOriginal, type FiledSummary, type RequestDetailResponse } from "@brieftaube/shared";
 import type { Api } from "../api/client.ts";
 import { CHANNEL_DE, DOC_TYPE_DE, HELD_DE, PROBLEM_DE, STATUS_DE, STEP_DE } from "../labels.ts";
 import { formatDate, formatDateTime, formatTime } from "../format.ts";
 import { usePolling } from "./usePolling.ts";
+import { expiryText, groupRequests } from "./board.ts";
+import { HeldReviewPanel } from "./HeldReview.tsx";
+import { formatRange } from "./values.ts";
 
 interface Props {
   api: Api;
@@ -25,31 +28,61 @@ export function RequestsPanel({ api, roomId, refreshKey }: Props) {
   if (selected) return <RequestDetail api={api} id={selected} onBack={() => setSelected(undefined)} />;
 
   const requests = list.data ?? [];
+  const groups = groupRequests(requests);
   return (
     <section className="card">
       <h2>Anfragen</h2>
       {list.error && <div className="banner alert">Anfragen konnten nicht geladen werden: {list.error}</div>}
       {!list.data && !list.error && <p className="muted">Laden …</p>}
       {list.data && requests.length === 0 && <p className="muted">Noch keine Anfragen in diesem Raum.</p>}
-      <ul className="req-list">
-        {requests.map((r) => (
-          <li key={r.id} className={r.lastProblem && r.status !== "filed" ? "problem" : ""}>
-            <button type="button" onClick={() => setSelected(r.id)}>
-              <div className="req-head">
-                <b>{r.reference}</b>
-                <StatusChip r={r} />
-              </div>
-              <div>
-                {DOC_TYPE_DE[r.documentType]} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
-              </div>
-              <div className="muted small">
-                an {r.recipient.displayName} ({CHANNEL_DE[r.recipient.channel]}) · {formatDateTime(r.createdAt)}
-              </div>
-              {r.lastProblem && r.status !== "filed" && <div className="problem-text">🛑 {PROBLEM_DE[r.lastProblem]}</div>}
-            </button>
-          </li>
+      {requests.length > 0 && (
+        <nav className="board-counts" aria-label="Übersicht">
+          {groups.map((g) => (
+            <a key={g.id} href={`#group-${g.id}`} className={`board-count g-${g.id} ${g.items.length === 0 ? "zero" : ""}`}>
+              <b>{g.items.length}</b> {g.label}
+            </a>
+          ))}
+        </nav>
+      )}
+      {groups
+        .filter((g) => g.items.length > 0)
+        .map((g) => (
+          <section key={g.id} id={`group-${g.id}`} className={`board-group g-${g.id}`} aria-label={g.label}>
+            <h3>
+              {g.label} <span className="count">{g.items.length}</span>
+            </h3>
+            <ul className="req-list">
+              {g.items.map((r) => (
+                <li key={r.id} className={r.lastProblem && r.status !== "filed" ? "problem" : ""}>
+                  <button type="button" onClick={() => setSelected(r.id)}>
+                    <div className="req-head">
+                      <b>{r.reference}</b>
+                      <StatusChip r={r} />
+                    </div>
+                    <div>
+                      {DOC_TYPE_DE[r.documentType]} · {r.patient.name.family}, {r.patient.name.given.join(" ")}
+                    </div>
+                    <div className="muted small">
+                      an {r.recipient.displayName} ({CHANNEL_DE[r.recipient.channel]}) · {formatDateTime(r.createdAt)}
+                    </div>
+                    {g.id === "waiting" && (
+                      <div className="small waiting-line">
+                        ⏳ {expiryText(r)}
+                        {r.reminderSentAt && (
+                          <span className="reminder" title={`Erinnerung gesendet ${formatDateTime(r.reminderSentAt)}`}>
+                            {" "}
+                            · 🔔 Erinnerung gesendet
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {r.lastProblem && r.status !== "filed" && <div className="problem-text">🛑 {PROBLEM_DE[r.lastProblem]}</div>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
     </section>
   );
 }
@@ -128,7 +161,11 @@ function DetailBody({ d, busy, onDecide }: { d: RequestDetailResponse; busy: boo
         </div>
       )}
 
+      {r.status === "held" && d.review && <HeldReviewPanel review={d.review} />}
+
       {d.summary && <Summary s={d.summary} />}
+
+      {d.original && <Original o={d.original} filed={r.filedResources} />}
 
       <h3>Verlauf</h3>
       <Timeline audit={d.audit} />
@@ -152,13 +189,21 @@ function Summary({ s }: { s: FiledSummary }) {
             </thead>
             <tbody>
               {s.values.map((v) => (
-                <tr key={v.testName} className={v.interpretation !== "N" ? "flag" : ""}>
-                  <td>{v.testName}</td>
+                <tr key={v.testName} className={v.critical ? "critical" : v.interpretation !== "N" ? "flag" : ""} title={v.critical ? `Kritischer Wert (Grenze ${v.critical.rule})` : undefined}>
+                  <td>
+                    {v.critical && (
+                      <span className="crit-icon" aria-label="Kritischer Wert">
+                        🚨{" "}
+                      </span>
+                    )}
+                    {labNameDe(v.loinc, v.testName)}
+                    {v.critical && <div className="crit-rule">Kritisch: {v.critical.rule}</div>}
+                  </td>
                   <td className="num">
-                    <b>{v.value.toLocaleString("de-AT")}</b> {v.unit}
+                    <b>{formatValueDe(v.value, v.low, v.high)}</b> {unitDisplay(v.unit)}
                     {v.interpretation !== "N" && <span className={`flag-badge ${v.interpretation}`}>{v.interpretation === "H" ? "↑ H" : "↓ L"}</span>}
                   </td>
-                  <td className="num muted">{range(v.low, v.high)}</td>
+                  <td className="num muted">{formatRange(v.low, v.high, v.value)}</td>
                 </tr>
               ))}
             </tbody>
@@ -181,12 +226,49 @@ function Summary({ s }: { s: FiledSummary }) {
   );
 }
 
-function range(low?: number, high?: number): string {
-  const f = (n: number) => n.toLocaleString("de-AT");
-  if (low !== undefined && high !== undefined) return `${f(low)}–${f(high)}`;
-  if (high !== undefined) return `< ${f(high)}`;
-  if (low !== undefined) return `> ${f(low)}`;
-  return "";
+/** "DiagnosticReport · 4 × Observation · Provenance" */
+function fhirLine(refs: string[]): string {
+  const counts = new Map<string, number>();
+  for (const ref of refs) {
+    const type = ref.split("/")[0] ?? ref;
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  return [...counts].map(([type, n]) => (n > 1 ? `${n} × ${type}` : type)).join(" · ");
+}
+
+function Original({ o, filed }: { o: FiledOriginal; filed: string[] }) {
+  const [open, setOpen] = useState(false);
+  const lines = o.text.split(/\r?\n/);
+  const name = o.fileName ?? "dokument.md";
+  return (
+    <>
+      <h3>Originaldokument</h3>
+      {/* The text is rendered only while open: it is the raw document (e.g. English test names), not part of the summary. */}
+      <details className="original" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+        <summary>
+          📄 <b>{name}</b> <span className="muted small">· wie empfangen · SHA-256 {o.sha256.slice(0, 12)}…</span>
+        </summary>
+        {open && (
+          <ol className="source">
+            {lines.map((text, i) => (
+              <li key={i}>
+                <span className="ln" aria-hidden>
+                  {i + 1}
+                </span>
+                <code>{text || " "}</code>
+              </li>
+            ))}
+          </ol>
+        )}
+        <div className="original-foot">
+          <span className="muted small">Abgelegt in FHIR: {fhirLine(filed)} · Original in {o.storedIn.split("/")[0]}</span>
+          <a className="link" download={name} href={`data:${o.contentType};charset=utf-8,${encodeURIComponent(o.text)}`}>
+            Original herunterladen
+          </a>
+        </div>
+      </details>
+    </>
+  );
 }
 
 function Timeline({ audit }: { audit: AuditEntry[] }) {
