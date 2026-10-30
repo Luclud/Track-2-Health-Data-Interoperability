@@ -416,10 +416,27 @@ describe("sender assist (ASSIST-2)", () => {
     expect(res.body).toContain('value="Maria"');
     expect(res.body).toContain('value="1961-03-12"');
     expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
-    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md }), jar) });
+    expect(res.body).toContain('<input type="hidden" name="assisted" value="1">');
+    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md, assisted: "1" }), jar) });
     expect(sent.body).toContain("Vielen Dank – gesendet!");
     const call = svc.calls.find((c) => c.method === "submitAnswer")!;
-    expect((call.args[2] as { content: string }).content).toBe(labDoc);
+    expect(call.args[2]).toMatchObject({ content: labDoc, senderAssist: true });
+  });
+
+  it("ASSIST-4: no hidden assisted field without „Übernehmen“; a plain POST is not marked", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const list = await app.inject({ url: "/r/tok-eva/answer?assist=1", headers: { cookie: jar.header() } });
+    expect(list.body).not.toContain('name="assisted"');
+    await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc }), jar) });
+    expect(svc.calls.find((c) => c.method === "submitAnswer")!.args[2]).not.toHaveProperty("senderAssist");
+  });
+
+  it("ASSIST-4: assisted=1 is ignored while SENDER_ASSIST is off", async () => {
+    await build(false, false);
+    const { jar } = await loginAs("eva-brandl");
+    await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: labDoc, assisted: "1" }), jar) });
+    expect(svc.calls.find((c) => c.method === "submitAnswer")!.args[2]).not.toHaveProperty("senderAssist");
   });
 
   it("an unknown or hidden id shows an error and fills nothing", async () => {

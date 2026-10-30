@@ -34,7 +34,25 @@ describe("held answers (CORE-11)", () => {
     const last = (await deps.audit.forRequest(request.id)).at(-1)!;
     expect(last).toMatchObject({ step: "answer-filed", outcome: "success", actor: { kind: "internal-practitioner", id: lena.matrixUserId }, details: { decision: "released", heldReason: "not-in-register" } });
     expect((await deps.chat.list(labBody.roomId)).at(-1)!.body).toContain("Ärzteliste ✗ (freigegeben)");
+    expect((await deps.chat.list(labBody.roomId)).at(-1)!.body).not.toContain("KI-Hilfe");
+    expect(last.details).not.toHaveProperty("senderAssist");
     await expect(service.release(request.id, lena)).rejects.toMatchObject({ code: "not-held", status: 409 });
+  });
+
+  it("ASSIST-4: a KI-Hilfe answer is audited as senderAssist and noted in the ✅ message, without titles", async () => {
+    const t = testDeps({ register: new FakeRegister({}) });
+    const { request } = await t.service.createRequest(lena, labBody);
+    const token = /\/r\/([A-Za-z0-9_-]+)/.exec((await (t.deps.email as MemorySender).inbox())[0]!.body)![1]!;
+    const id = identity("eva-brandl");
+    await t.service.completeIdentityCheck(token, id, {});
+    expect(await t.service.submitAnswer(token, id, { ...maria, content: labDoc, senderAssist: true }, {})).toEqual({ result: "held", reason: "not-in-register" });
+    await t.service.release(request.id, lena);
+    const last = (await t.deps.audit.forRequest(request.id)).at(-1)!;
+    expect(last).toMatchObject({ step: "answer-filed", outcome: "success", details: { senderAssist: true } });
+    expect(JSON.stringify(last.details)).not.toMatch(/labor-gerinnung|Laborbefund Gerinnung/);
+    const msg = (await t.deps.chat.list(labBody.roomId)).at(-1)!;
+    expect(msg.body).toMatch(/^✅[\s\S]*\nAbsender hat die KI-Hilfe genutzt; Auswahl vom Absender bestätigt\.$/);
+    expect(msg.html).toContain("<p>Absender hat die KI-Hilfe genutzt; Auswahl vom Absender bestätigt.</p>");
   });
 
   it("reject files nothing", async () => {

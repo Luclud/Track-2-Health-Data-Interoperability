@@ -63,6 +63,9 @@ export function labSummaryLine(doc: ParsedLabResult): string {
   return `${items.join(" · ")} – ${out.length ? `außerhalb des Referenzbereichs: ${out.join(", ")}` : "alle im Referenzbereich"}`;
 }
 
+/** ASSIST-4: extra line in the ✅ message when the sender used the KI-Hilfe. */
+export const CHAT_SENDER_ASSIST = "Absender hat die KI-Hilfe genutzt; Auswahl vom Absender bestätigt.";
+
 export function chatFiled(r: DocumentRequest, doc: ParsedDocument, register: RegisterResult): string {
   const id = `Identität: ID Austria (simuliert)${register.checked ? (register.listed ? ", Ärzteliste ✓" : ", Ärzteliste ✗ (freigegeben)") : ""}`;
   if (doc.kind === "lab-result") return `✅ ${r.reference}: Laborbefund von ${r.recipient.displayName} abgelegt. ${labSummaryLine(doc)}. ${id}`;

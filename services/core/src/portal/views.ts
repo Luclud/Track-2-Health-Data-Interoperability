@@ -11,6 +11,8 @@ export interface AnswerForm {
   content?: string;
   fileName?: string;
   fileContent?: string;
+  /** ASSIST-4: hidden field, set when the document came from „Übernehmen“. */
+  assisted?: string;
 }
 export type AnswerErrors = Partial<Record<"patientGiven" | "patientFamily" | "patientBirthDate" | "document" | "form", string>>;
 type Step = 1 | 2 | 3;
@@ -133,9 +135,9 @@ export interface AssistPanel { on: string; off: string; result?: AssistResult; p
 
 const IMPORTANCE_DE: Record<AssistResult["items"][number]["importance"], string> = { hoch: "Hoch", mittel: "Mittel", niedrig: "Niedrig", "nicht relevant": "Nicht relevant" };
 
-function assistBlock(v: AuthorizedRequestView, a: AssistPanel) {
+function assistBlock(v: AuthorizedRequestView, a: AssistPanel, values: AnswerForm) {
   const r = a.result;
-  return html`
+  return html`${a.picked || values.assisted === "1" ? html`<input type="hidden" name="assisted" value="1">` : ""}
 <div class="assist-opt"><label class="check"><input type="checkbox" id="assist-toggle"${r ? html` checked` : ""} data-on="${a.on}" data-off="${a.off}" onchange="location.href=this.checked?this.dataset.on:this.dataset.off"> KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen</label>
 <p class="hint">Optional. Läuft im Echtbetrieb lokal in Ihrer Praxis – Dokumente verlassen die Praxis erst mit „Sicher senden“.</p>
 <noscript><p><a href="${r ? a.off : a.on}">${r ? "KI-Hilfe ausblenden" : "KI-Hilfe öffnen"}</a></p></noscript></div>
@@ -191,7 +193,7 @@ ${fieldError("patientFamily", errors)}
 <label for="patientBirthDate">Geburtsdatum <span class="hint">z. B. 12.03.1961</span></label>
 <input id="patientBirthDate" name="patientBirthDate" type="date" required value="${values.patientBirthDate ?? ""}"${invalid("patientBirthDate", errors)}>
 ${fieldError("patientBirthDate", errors)}
-<h2>Dokument</h2>${assist ? assistBlock(v, assist) : ""}
+<h2>Dokument</h2>${assist ? assistBlock(v, assist, values) : ""}
 <label for="file">Datei hochladen <span class="hint">.md oder .txt, höchstens 1 MB</span></label>
 <input id="file" name="file" type="file" accept=".md,.txt,.markdown,text/markdown,text/plain"${invalid("document", errors)}>
 <p class="or">oder</p>

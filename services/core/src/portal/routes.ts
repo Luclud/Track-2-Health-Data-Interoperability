@@ -200,10 +200,11 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
       patientBirthDate: form.patientBirthDate!.trim(),
       content: (form.fileContent ?? form.content ?? "").replace(/^\uFEFF/, ""),
       ...(form.fileName ? { fileName: form.fileName } : {}),
+      ...(deps.config.senderAssist && form.assisted === "1" ? { senderAssist: true } : {}),
     };
     const outcome = await deps.requests.submitAnswer(token, s.identity, answer, requestMeta(req));
     if (outcome.result === "rejected") {
-      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate }, {}, outcome, demoLinks(token), assistToggle(token)), 422);
+      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate, assisted: form.assisted }, {}, outcome, demoLinks(token), assistToggle(token)), 422);
     }
     sessions.delete(readSigned(req, SESSION_COOKIE));
     reply.clearCookie(SESSION_COOKIE, { path: cookiePath(token) });

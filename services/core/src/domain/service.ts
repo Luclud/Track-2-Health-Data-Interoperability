@@ -19,7 +19,7 @@ import { createdReferences } from "../fhir/store.ts";
 import type { FilingContext } from "../fhir/types.ts";
 import type { ParsedDocument, ParseResult } from "@brieftaube/shared";
 import { type CriticalLimits, criticalForParsed, loadCriticalLimits } from "./critical.ts";
-import { HELD_REASON_DE, RESPONDER_MESSAGES, type LabRow, chatCritical, chatFiled, chatFiledHtml, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
+import { HELD_REASON_DE, RESPONDER_MESSAGES, type LabRow, chatCritical, CHAT_SENDER_ASSIST, chatFiled, chatFiledHtml, chatHeld, chatHeldRejected, chatUnreadable, chatWrongPatient, chatWrongType, checkPatient } from "./answers.ts";
 import { registerApplies } from "./identity.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
@@ -268,6 +268,7 @@ export class CoreRequestService implements Partial<RequestService> {
     const register = await lookupRegister(r, identity, this.d.register);
     const ctx: FilingContext = {
       request: r,
+      ...(answer.senderAssist ? { senderAssist: true } : {}),
       identity,
       register,
       policy: policyFor(r),
@@ -372,12 +373,13 @@ export class CoreRequestService implements Partial<RequestService> {
         : { kind: "system", id: "brieftaube", display: "Brieftaube" },
       what: `${releasedBy ? `Released by ${releasedBy.displayName}: filed` : "Filed"} ${main}${obs ? `, ${obs} Observations` : ""}, ${count("Provenance")[0]} for Patient/${r.patient.fhirId}`,
       outcome: "success",
-      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}), ...(critical.length ? { criticalValues: critical } : {}) },
+      details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}), ...(critical.length ? { criticalValues: critical } : {}), ...(ctx.senderAssist ? { senderAssist: true } : {}) },
     });
     const summary = doc.kind === "rehab-discharge-report" ? await rehabSummary(this.d.llm, doc.markdown) : undefined;
-    const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "");
+    const assisted = ctx.senderAssist ? `\n${CHAT_SENDER_ASSIST}` : "";
+    const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "") + assisted;
     if (critical.length) await this.post({ roomId: r.roomId, ...chatCritical(r, rows), severity: "alert" });
-    await this.post({ roomId: r.roomId, body, ...(doc.kind === "lab-result" ? { html: chatFiledHtml(r, rows, ctx.register) } : {}), severity: "success" });
+    await this.post({ roomId: r.roomId, body, ...(doc.kind === "lab-result" ? { html: chatFiledHtml(r, rows, ctx.register) + (assisted ? `<p>${CHAT_SENDER_ASSIST}</p>` : "") } : {}), severity: "success" });
     return filed;
   }
 

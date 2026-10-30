@@ -40,5 +40,5 @@ test("Dr. Brandl lets the KI-Hilfe pick the current clotting panel and sends it"
   await page.getByRole("button", { name: "Sicher senden" }).click();
   await expect(page.getByRole("heading", { name: /gesendet/i })).toBeVisible({ timeout: 20_000 });
   expect((await coreApi.detail(request.id)).request.status).toBe("filed");
-  await chatMessageMatching(`✅ for ${request.reference}`, (b) => b.includes("✅") && b.includes(request.reference));
+  await chatMessageMatching(`✅ with KI-Hilfe line for ${request.reference}`, (b) => b.includes("✅") && b.includes(request.reference) && b.includes("Absender hat die KI-Hilfe genutzt; Auswahl vom Absender bestätigt."));
 });
