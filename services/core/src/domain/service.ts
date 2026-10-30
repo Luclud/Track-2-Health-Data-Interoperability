@@ -158,7 +158,7 @@ export class CoreRequestService implements Partial<RequestService> {
           outcome: "failure",
           details: { misdelivery: "identity-mismatch", ...metaDetails },
         });
-        await this.d.chat.post({ roomId: r.roomId, body: chatIdentityMismatch(r, identity), severity: "warning" });
+        await this.post({ roomId: r.roomId, body: chatIdentityMismatch(r, identity), severity: "warning" });
       }
       return { ok: false, reason: decision.reason, identity };
     }
