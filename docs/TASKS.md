@@ -41,7 +41,7 @@ Owns: `services/core/src/{domain,parser,fhir,llm,audit,api,db}/**`
   - Tests with `mock`: hallucinated value is rejected; correct extraction becomes `held`.
 - [x] **CORE-10 (P1) Recipient check.** `checkRecipient`: uppercase, confusables, mixed scripts, unknown contact, name-not-in-address. `labor-kanaI.example` must warn.
 - [x] **CORE-11 (P2) Held answers.** release/reject endpoints + service; release files exactly what was held (keep the parsed doc in the DB until decided).
-- [ ] **CORE-12 (P3) Extras.** MedicationStatements from the rehab report; 2-line AI summary of the rehab report in the Matrix ✅ message when an LLM is configured (clearly marked "KI-Zusammenfassung").
+- [x] **CORE-12 (P3) Extras.** MedicationStatements from the rehab report; 2-line AI summary of the rehab report in the Matrix ✅ message when an LLM is configured (clearly marked "KI-Zusammenfassung").
 
 ## Lane A-TEST — Tester (account A)
 Owns: `tests/**`, `scripts/validate-fhir.ts`, `scripts/metrics.ts`, `.github/workflows/**`

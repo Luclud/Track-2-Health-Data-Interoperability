@@ -5,6 +5,8 @@ import type { CreateRequestBody, DocumentRequest, IdentityCheckOutcome, PatientS
 import type { Organization, Patient, Practitioner, PractitionerRole } from "fhir/r4.js";
 import { checkRecipientAddress } from "./recipient.ts";
 import { llmParse } from "../llm/index.ts";
+import { rehabSummary } from "../llm/summary.ts";
+import { addMedicationStatements } from "../fhir/build-medications.ts";
 import { type HeldAnswerStore, isHeldAnswerStore, MemoryHeldAnswerStore } from "../db/index.ts";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
@@ -319,6 +321,7 @@ export class CoreRequestService implements Partial<RequestService> {
   /** Build the transaction, send it, mark the request filed, audit + Matrix ✅. */
   protected async file(r: DocumentRequest, doc: ParsedDocument, ctx: FilingContext, releasedBy?: Requester): Promise<string[]> {
     const bundle = doc.kind === "lab-result" ? buildLabBundle(doc, ctx) : buildRehabBundle(doc, ctx);
+    if (doc.kind === "rehab-discharge-report") addMedicationStatements(bundle, doc, ctx);
     let response;
     try {
       response = await this.d.fhir.transaction(bundle);
@@ -348,7 +351,9 @@ export class CoreRequestService implements Partial<RequestService> {
       outcome: "success",
       details: { filedResources: filed, policy: ctx.policy, ...(releasedBy ? { decision: "released", heldReason } : {}) },
     });
-    await this.post({ roomId: r.roomId, body: chatFiled(r, doc, ctx.register), severity: "success" });
+    const summary = doc.kind === "rehab-discharge-report" ? await rehabSummary(this.d.llm, doc.markdown) : undefined;
+    const body = chatFiled(r, doc, ctx.register) + (summary ? `\nKI-Zusammenfassung (bitte im Original prüfen): ${summary}` : "");
+    await this.post({ roomId: r.roomId, body, severity: "success" });
     return filed;
   }
 
