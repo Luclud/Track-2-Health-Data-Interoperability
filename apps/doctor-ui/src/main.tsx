@@ -21,9 +21,11 @@ function App() {
   const [authError, setAuthError] = useState<string | undefined>();
   const [lastCreated, setLastCreated] = useState<string | undefined>();
   const [tab, setTab] = useState<"new" | "list">("new");
+  const [juryMode, setJuryMode] = useState(false);
 
   useEffect(() => {
     api.me().then(setMe, (e: unknown) => setAuthError((e as Error).message));
+    api.uiConfig().then((c) => setJuryMode(c.juryMode), () => setJuryMode(false));
   }, [api]);
 
   const panels = (
@@ -38,7 +40,7 @@ function App() {
       </nav>
       <div className="panels">
         {tab === "new" ? (
-          <NewRequestForm api={api} roomId={env.roomId} onCreated={(r) => setLastCreated(r.id)} />
+          <NewRequestForm api={api} roomId={env.roomId} juryMode={juryMode} onCreated={(r) => setLastCreated(r.id)} />
         ) : (
           <RequestsPanel api={api} roomId={env.roomId} refreshKey={lastCreated} />
         )}
@@ -57,6 +59,7 @@ function App() {
         <span className="muted sub">Dokumente sicher von außen anfordern</span>
         <span className="spacer" />
         {env.mock && <span className="chip neutral">Demo-Daten</span>}
+        {juryMode && <span className="chip warning">Jury-Modus</span>}
         {me && <span className="muted small">{me.displayName}</span>}
       </header>
       {authError && (

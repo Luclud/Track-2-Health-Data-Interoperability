@@ -13,11 +13,11 @@ export function groupRequests(requests: readonly DocumentRequestView[]): { id: B
   return BOARD_GROUPS.map((g) => ({ id: g.id, label: g.label, items: requests.filter((r) => g.statuses.includes(r.status)) }));
 }
 
-/** "läuft ab in 5 h" — the view has no expiresAt, so this assumes createdAt + REQUEST_TTL_HOURS. */
-export function expiryText(createdAt: string, now = Date.now(), ttlHours = REQUEST_TTL_HOURS): string {
-  const created = Date.parse(createdAt);
-  if (Number.isNaN(created)) return "";
-  const left = created + ttlHours * 3_600_000 - now;
+/** "läuft ab in 5 h" from `expiresAt`; falls back to createdAt + REQUEST_TTL_HOURS for an older core. */
+export function expiryText(r: Pick<DocumentRequestView, "createdAt" | "expiresAt">, now = Date.now()): string {
+  const end = r.expiresAt ? Date.parse(r.expiresAt) : Date.parse(r.createdAt) + REQUEST_TTL_HOURS * 3_600_000;
+  if (Number.isNaN(end)) return "";
+  const left = end - now;
   if (left <= 0) return "Frist abgelaufen";
   const min = Math.floor(left / 60_000);
   if (min < 60) return `läuft ab in ${Math.max(min, 1)} min`;

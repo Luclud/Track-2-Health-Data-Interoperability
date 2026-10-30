@@ -118,7 +118,16 @@ function invalid(id: keyof AnswerErrors, errors: AnswerErrors) {
   return errors[id] ? html` aria-invalid="true" aria-describedby="${id}-error"` : "";
 }
 
-export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity, values: AnswerForm, errors: AnswerErrors = {}, rejected?: Extract<AnswerOutcome, { result: "rejected" }>): string {
+/** JURY_MODE only: links that re-render the form with a demo document in the textarea. */
+export interface DemoLinks { sample: string; wrongPatient: string }
+
+function demoButtons(d: DemoLinks) {
+  return html`<div class="demo" role="group" aria-label="Demo-Hilfen (nur Jury-Modus)"><p class="demo-label">Nur für die Vorführung (Demo):</p>
+<a class="demo-btn" href="${d.sample}">Beispielbefund einsetzen (Demo)</a>
+<a class="demo-btn" href="${d.wrongPatient}">Beispiel: falsche Patientin (Demo)</a></div>`;
+}
+
+export function answerPage(v: AuthorizedRequestView, identity: VerifiedIdentity, values: AnswerForm, errors: AnswerErrors = {}, rejected?: Extract<AnswerOutcome, { result: "rejected" }>, demo?: DemoLinks): string {
   const label = DOCUMENT_TYPE_LABELS_DE[v.documentType];
   const p = v.patient;
   const who = [...(identity.name.prefix ?? []), ...identity.name.given, identity.name.family].join(" ");
@@ -154,6 +163,7 @@ ${fieldError("patientBirthDate", errors)}
 <label for="content">Text einfügen <span class="hint">den ganzen Inhalt des Dokuments, unverändert</span></label>
 <textarea id="content" name="content" rows="8"${invalid("document", errors)}>${values.content ?? ""}</textarea>
 ${fieldError("document", errors)}
+${demo ? demoButtons(demo) : ""}
 <button class="btn" type="submit">Sicher senden</button>
 <p class="hint">Mit „Sicher senden“ geht das Dokument direkt an ${v.requesterDisplayName} (${v.requesterOrganization}).</p>
 </form>`,

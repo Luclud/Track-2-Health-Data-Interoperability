@@ -12,6 +12,8 @@ import { MockPhysicianRegister } from "../register/index.ts";
 import { FakeRequestService, makeFakeRequest } from "./__fakes__/fake-request-service.ts";
 import { registerPortalRoutes } from "./routes.ts";
 import { validateAnswer } from "./views.ts";
+import { createDocumentParser } from "../parser/index.ts";
+import type { ParsedDocument } from "@brieftaube/shared";
 
 const base = "http://localhost:3000";
 const labDoc = readFileSync(new URL("../../../../scenario/documents/lab-result-maria-beispiel.md", import.meta.url), "utf8");
@@ -19,14 +21,14 @@ const labDoc = readFileSync(new URL("../../../../scenario/documents/lab-result-m
 let app: FastifyInstance;
 let svc: FakeRequestService;
 
-async function build() {
+async function build(juryMode = false) {
   svc = new FakeRequestService(
     makeFakeRequest(),
     makeFakeRequest({ id: "req-2", token: "tok-old" }, { status: "expired" }),
     makeFakeRequest({ id: "req-3", token: "tok-done" }, { status: "answered" }),
   );
   const deps = {
-    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid` },
+    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid`, juryMode },
     eid: new MockIdAustria({ eidIssuerUrl: `${base}/mock-eid` }),
     register: new MockPhysicianRegister(),
     requests: svc,
@@ -89,7 +91,7 @@ function multipartBody(fields: Record<string, string>, file?: { name: string; co
 
 const maria = { patientGiven: "Maria", patientFamily: "Beispiel", patientBirthDate: "1961-03-12" };
 
-beforeEach(build);
+beforeEach(() => build());
 
 describe("portal landing", () => {
   it("shows requester, recipient, reference and expiry — nothing about the patient or document type", async () => {
@@ -240,6 +242,74 @@ describe("answer", () => {
     const res = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: "# x" }), jar) });
     expect(res.statusCode).toBe(500);
     expect(res.body).toContain("Etwas ist schiefgelaufen");
+  });
+});
+
+describe("jury demo buttons (V2-JURY-2)", () => {
+  const SAMPLE = "Beispielbefund einsetzen (Demo)";
+  const WRONG = "Beispiel: falsche Patientin (Demo)";
+  const textarea = (body: string) => {
+    const m = /<textarea[^>]*>([\s\S]*?)<\/textarea>/.exec(body);
+    return (m?.[1] ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  };
+  const parsedPatient = (md: string) => {
+    const r = createDocumentParser().parse(md);
+    expect(r.ok).toBe(true);
+    return (r.document as ParsedDocument).patient;
+  };
+
+  it("are absent by default, also when ?demo= is forced", async () => {
+    const { jar } = await loginAs("eva-brandl");
+    const form = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(form.body).not.toContain(SAMPLE);
+    expect(form.body).not.toContain(WRONG);
+    expect(form.body).not.toContain("demo=");
+    const forced = await app.inject({ url: "/r/tok-eva/answer?demo=beispiel", headers: { cookie: jar.header() } });
+    expect(textarea(forced.body)).toBe("");
+    expect(forced.body).not.toContain('value="Maria"');
+  });
+
+  it("are present in jury mode and clearly labelled Demo", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const form = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(form.body).toContain(SAMPLE);
+    expect(form.body).toContain(WRONG);
+    expect(form.body).toContain('href="/r/tok-eva/answer?demo=beispiel#content"');
+    expect(form.body).not.toContain('value="Maria"'); // nothing prefilled until a demo button is used
+  });
+
+  it("the sample parses to the requested patient and is filed", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?demo=beispiel", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(parsedPatient(md)).toEqual({ name: { given: ["Maria"], family: "Beispiel" }, birthDate: "1961-03-12" });
+    expect(md).toBe(labDoc);
+    expect(res.body).toContain('value="Maria"');
+    expect(res.body).toContain('value="1961-03-12"');
+    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md }), jar) });
+    expect(sent.body).toContain("Vielen Dank");
+  });
+
+  it("the wrong-patient sample is the Max Beispiel document (M3)", async () => {
+    await build(true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?demo=falsche-patientin", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(parsedPatient(md)).toEqual({ name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" });
+    expect(res.body).toContain('value="Maria"'); // the sender thinks it is Maria's
+  });
+
+  it("follows the requested patient and document type", async () => {
+    svc = new FakeRequestService();
+    const { demoDocument } = await import("./demo.ts");
+    const johann = { patient: { name: { given: ["Johann"], family: "Muster" }, birthDate: "1955-07-01" }, documentType: "rehab-discharge-report" as const };
+    const r = createDocumentParser().parse(demoDocument("beispiel", johann));
+    expect(r.document).toMatchObject({ kind: "rehab-discharge-report", patient: { name: { given: ["Johann"], family: "Muster" }, birthDate: "1955-07-01" } });
+    expect(parsedPatient(demoDocument("falsche-patientin", johann)).name.given).toEqual(["Max"]);
+    const max = { patient: { name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" }, documentType: "lab-result" as const };
+    expect(parsedPatient(demoDocument("falsche-patientin", max)).name.given).toEqual(["Maria"]);
   });
 });
 

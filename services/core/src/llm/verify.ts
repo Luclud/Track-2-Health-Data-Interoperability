@@ -1,24 +1,34 @@
 // Verification of LLM output (docs/DESIGN.md §3). Anything not literally backed by the source is rejected.
 import type { ParsedDocument, ParsedLabValue, ParseResult, PersonName } from "@brieftaube/shared";
 import { DateTime } from "luxon";
-import { foldText, isValidLoinc, parseDate, toIsoDate } from "../parser/index.ts";
+import { foldText, isValidLoinc, parseDate, parseDateRange, toIsoDate } from "../parser/index.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
 /** All numbers written in the text ("1.0", "3,1", "10^9" → 10, 9). */
-function numbersIn(text: string): number[] {
+export function numbersIn(text: string): number[] {
   return [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map((m) => Number(m[0].replace(",", ".")));
 }
 
 /** Every date in the text, as YYYY-MM-DD, in any supported format. */
-function datesIn(text: string): Set<string> {
+export function datesIn(text: string): Set<string> {
   const out = new Set<string>();
   const re = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\s?\d{1,2}\.\s?\d{4}\b|\b\d{1,2}\.?\s+[A-Za-zÄÖÜäöüß]+\.?\s+\d{4}\b|\b[A-Za-z]+\s+\d{1,2},?\s+\d{4}\b/g;
   for (const m of text.matchAll(re)) {
     const d = parseDate(m[0]);
     if (d) out.add(toIsoDate(d));
+  }
+  return out;
+}
+
+/** Date ranges written as one phrase ("Stay: 2 to 23 September 2026"), as "start..end". */
+function rangesIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const r = parseDateRange(line.slice(line.lastIndexOf(":") + 1).replace(/[*_]/g, ""));
+    if (r) out.add(`${r.start}..${r.end}`);
   }
   return out;
 }
@@ -114,7 +124,7 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
     const st = isObj(candidate.stay) ? candidate.stay : undefined;
     const stay = st && isoDate(st.start) && isoDate(st.end) ? { start: s(st.start), end: s(st.end) } : undefined;
     if (st && !stay) problems.push("stay dates do not parse");
-    if (stay && (!sourceDates.has(stay.start) || !sourceDates.has(stay.end))) problems.push(`stay ${stay.start}..${stay.end} not in source`);
+    if (stay && (!sourceDates.has(stay.start) || !sourceDates.has(stay.end)) && !rangesIn(source).has(`${stay.start}..${stay.end}`)) problems.push(`stay ${stay.start}..${stay.end} not in source`);
     if (problems.length) return fail();
     const writtenBy = person(candidate.writtenBy);
     const sentBy = person(candidate.sentBy);
@@ -129,4 +139,41 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
     };
   }
   return { ok: true, method: "llm", document: doc, problems: [] };
+}
+
+/** 1-based line of `source` and its text (as received, without the line break). */
+export interface SourceEvidence {
+  line: number;
+  text: string;
+}
+
+/**
+ * The line that literally contains `value` (same number matching as the verification above).
+ * Among several, prefer the line that also contains one of the hints (test name, LOINC code).
+ */
+export function evidenceForNumber(source: string, value: number, hints: string[] = []): SourceEvidence | undefined {
+  const lines = source.split(/\r?\n/);
+  const folded = hints.map((h) => foldText(h)).filter(Boolean);
+  let best: { i: number; score: number } | undefined;
+  lines.forEach((text, i) => {
+    if (!numbersIn(text).includes(value)) return;
+    const f = foldText(text);
+    const score = folded.filter((h) => f.includes(h)).length;
+    if (!best || score > best.score) best = { i, score };
+  });
+  return best ? { line: best.i + 1, text: lines[best.i]! } : undefined;
+}
+
+/** The line that names the patient, preferring one that also contains the birth date. */
+export function evidenceForPatient(source: string, name: PersonName, birthDate?: string): SourceEvidence | undefined {
+  const lines = source.split(/\r?\n/);
+  const family = foldText(name.family);
+  let best: { i: number; score: number } | undefined;
+  lines.forEach((text, i) => {
+    const f = foldText(text);
+    if (!f.includes(family)) return;
+    const score = (name.given[0] && f.includes(foldText(name.given[0])) ? 1 : 0) + (birthDate && datesIn(text).has(birthDate) ? 2 : 0);
+    if (!best || score > best.score) best = { i, score };
+  });
+  return best ? { line: best.i + 1, text: lines[best.i]! } : undefined;
 }

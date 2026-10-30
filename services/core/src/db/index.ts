@@ -2,17 +2,21 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import type { DocumentRequest, ParsedDocument } from "@brieftaube/shared";
+import type { DocumentRequest, ParsedDocument, RequestStatus } from "@brieftaube/shared";
 import type { FilingContext } from "../fhir/types.ts";
 import type { Config } from "../config.ts";
 import type { RequestRepository } from "../ports.ts";
 
 type Row = { json: string };
 
+const OPEN_STATUSES: ReadonlySet<RequestStatus> = new Set(["sent", "opened", "identity-failed", "verified", "rejected"]);
+
 /** A held answer, kept until Dr. Hofer releases or rejects it (CORE-11). */
 export interface HeldAnswer {
   document: ParsedDocument;
   context: Omit<FilingContext, "request" | "newUuid">;
+  /** How the document was read (v2; older rows: derived from the held reason) */
+  method?: "deterministic" | "llm";
 }
 
 export interface HeldAnswerStore {
@@ -89,6 +93,14 @@ export class SqliteRequestRepository implements RequestRepository, HeldAnswerSto
   async listByRoom(roomId: string): Promise<DocumentRequest[]> {
     const rows = this.db.prepare("SELECT json FROM requests WHERE room_id = ? ORDER BY created_at DESC, rowid DESC").all(roomId) as Row[];
     return rows.map((r) => JSON.parse(r.json) as DocumentRequest);
+  }
+  async listOpen(): Promise<DocumentRequest[]> {
+    const rows = this.db.prepare("SELECT json FROM requests ORDER BY created_at ASC, rowid ASC").all() as Row[];
+    return rows.map((r) => JSON.parse(r.json) as DocumentRequest).filter((r) => OPEN_STATUSES.has(r.status));
+  }
+  async rotateTokenHash(id: string, tokenHash: string): Promise<void> {
+    const res = this.db.prepare("UPDATE requests SET token_hash = ? WHERE id = ?").run(tokenHash, id);
+    if (res.changes === 0) throw new Error(`request ${id} not found`);
   }
   async saveHeld(id: string, held: HeldAnswer): Promise<void> {
     this.db.prepare("INSERT OR REPLACE INTO held_answers (request_id, json) VALUES (?, ?)").run(id, JSON.stringify(held));

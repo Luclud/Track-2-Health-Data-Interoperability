@@ -4,8 +4,15 @@ import { join, resolve } from "node:path";
 import type { ParsedDocument } from "@brieftaube/shared";
 
 export type FixtureExpectation =
-  | { ok: true; document: ParsedDocument; expectedInterpretation?: ("N" | "H" | "L")[]; patientMatchesMaria?: boolean }
-  | { ok: false; llmDocument?: ParsedDocument };
+  | {
+      ok: true;
+      document: ParsedDocument;
+      expectedInterpretation?: ("N" | "H" | "L")[];
+      patientMatchesMaria?: boolean;
+      /** LOINC codes that must raise the critical-value alert (V2-CRIT-1), in table order */
+      expectedCritical?: string[];
+    }
+  | { ok: false; llmDocument?: ParsedDocument; expectedInterpretation?: ("N" | "H" | "L")[] };
 
 export interface DocumentFixture {
   name: string;

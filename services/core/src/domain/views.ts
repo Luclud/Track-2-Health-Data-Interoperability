@@ -6,6 +6,7 @@ export function toView(r: DocumentRequest): DocumentRequestView {
     id: r.id,
     reference: r.reference,
     createdAt: r.createdAt,
+    expiresAt: r.expiresAt,
     status: r.status,
     documentType: r.documentType,
     patient: r.patient,

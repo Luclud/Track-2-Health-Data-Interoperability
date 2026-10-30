@@ -67,6 +67,23 @@ export class MockIdAustria implements IdentityProvider {
   }
 }
 
+const isLoopback = (u: string) => {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(u).hostname);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The mock eID is served by this core under /mock-eid. Behind a tunnel (PUBLIC_BASE_URL=https://…) a
+ * localhost EID_ISSUER_URL (the .env.example default) would send the phone to its own localhost.
+ */
+export function effectiveIssuerUrl(config: Pick<Config, "eidIssuerUrl" | "publicBaseUrl">): string {
+  if (isLoopback(config.eidIssuerUrl) && !isLoopback(config.publicBaseUrl)) return `${config.publicBaseUrl.replace(/\/+$/, "")}/mock-eid`;
+  return config.eidIssuerUrl;
+}
+
 export function createIdentityProvider(config: Config): IdentityProvider {
-  return new MockIdAustria(config);
+  return new MockIdAustria({ eidIssuerUrl: effectiveIssuerUrl(config) });
 }

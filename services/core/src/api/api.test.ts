@@ -113,6 +113,7 @@ describe("REST API", () => {
     const a = await off.app.inject({ method: "POST", url: "/api/requests", headers: LENA, payload: { ...labBody, acknowledgeWarnings: true } });
     expect(a.statusCode).toBe(201);
     expect(a.json()).not.toHaveProperty("juryLink");
+    expect(a.json().request.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
     const on = await setup({ juryMode: true });
     const b = await on.app.inject({ method: "POST", url: "/api/requests", headers: LENA, payload: { ...labBody, acknowledgeWarnings: true } });

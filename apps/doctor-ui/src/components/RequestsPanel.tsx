@@ -65,7 +65,7 @@ export function RequestsPanel({ api, roomId, refreshKey }: Props) {
                     </div>
                     {g.id === "waiting" && (
                       <div className="small waiting-line">
-                        ⏳ {expiryText(r.createdAt)}
+                        ⏳ {expiryText(r)}
                         {r.reminderSentAt && (
                           <span className="reminder" title={`Erinnerung gesendet ${formatDateTime(r.reminderSentAt)}`}>
                             {" "}
