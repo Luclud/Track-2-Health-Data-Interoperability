@@ -12,6 +12,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { VerifiedIdentity } from "@brieftaube/shared";
 import type { Deps } from "../container.ts";
 import type { AnswerInput, AuthorizedRequestView, PublicRequestView, RequestMeta } from "../ports.ts";
+import { demoDocument, isDemoKind } from "./demo.ts";
 import * as V from "./views.ts";
 
 const CSS = readFileSync(new URL("./portal.css", import.meta.url), "utf8");
@@ -77,6 +78,9 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
   const callbackUrl = (token: string) => `${base}${cookiePath(token)}/callback`;
   const cookieOpts = (token: string, ttl: number) => ({ path: cookiePath(token), httpOnly: true, sameSite: "lax" as const, secure, signed: true, maxAge: Math.floor(ttl / 1000) });
 
+  const demoLinks = (token: string): V.DemoLinks | undefined =>
+    deps.config.juryMode ? { sample: `${cookiePath(token)}/answer?demo=beispiel#content`, wrongPatient: `${cookiePath(token)}/answer?demo=falsche-patientin#content` } : undefined;
+
   function currentSession(req: FastifyRequest, token: string): PortalSession | undefined {
     const s = sessions.get(readSigned(req, SESSION_COOKIE));
     return s && s.token === token ? s : undefined;
@@ -141,10 +145,18 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     return reply.redirect(`${cookiePath(token)}/answer`, 303);
   });
 
-  app.get<{ Params: { token: string } }>("/r/:token/answer", async (req, reply) => {
-    const s = currentSession(req, req.params.token);
-    if (!s) return reply.redirect(cookiePath(req.params.token), 303);
-    return sendHtml(reply, V.answerPage(s.view, s.identity, {}));
+  app.get<{ Params: { token: string }; Querystring: { demo?: string } }>("/r/:token/answer", async (req, reply) => {
+    const { token } = req.params;
+    const s = currentSession(req, token);
+    if (!s) return reply.redirect(cookiePath(token), 303);
+    const demo = demoLinks(token);
+    if (demo && isDemoKind(req.query.demo)) {
+      // The sender believes it is the requested patient; only the document differs (M3 for "falsche-patientin").
+      const p = s.view.patient;
+      const values = { patientGiven: p.name.given.join(" "), patientFamily: p.name.family, patientBirthDate: p.birthDate, content: demoDocument(req.query.demo, s.view) };
+      return sendHtml(reply, V.answerPage(s.view, s.identity, values, {}, undefined, demo));
+    }
+    return sendHtml(reply, V.answerPage(s.view, s.identity, {}, {}, undefined, demo));
   });
 
   app.post<{ Params: { token: string } }>("/r/:token/answer", async (req, reply) => {
@@ -157,10 +169,10 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
       form = await readAnswerForm(req);
     } catch (err) {
       req.log.warn({ err }, "could not read answer form");
-      return sendHtml(reply, V.answerPage(s.view, s.identity, {}, { form: "Die Datei konnte nicht gelesen werden (höchstens 1 MB, .md oder .txt)." }), 400);
+      return sendHtml(reply, V.answerPage(s.view, s.identity, {}, { form: "Die Datei konnte nicht gelesen werden (höchstens 1 MB, .md oder .txt)." }, undefined, demoLinks(token)), 400);
     }
     const errors = V.validateAnswer(form);
-    if (Object.keys(errors).length > 0) return sendHtml(reply, V.answerPage(s.view, s.identity, form, errors), 400);
+    if (Object.keys(errors).length > 0) return sendHtml(reply, V.answerPage(s.view, s.identity, form, errors, undefined, demoLinks(token)), 400);
 
     const answer: AnswerInput = {
       patientGiven: form.patientGiven!.trim(),
@@ -171,7 +183,7 @@ async function portalPlugin(app: FastifyInstance, deps: Deps, now: () => number)
     };
     const outcome = await deps.requests.submitAnswer(token, s.identity, answer, requestMeta(req));
     if (outcome.result === "rejected") {
-      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate }, {}, outcome), 422);
+      return sendHtml(reply, V.answerPage(s.view, s.identity, { patientGiven: form.patientGiven, patientFamily: form.patientFamily, patientBirthDate: form.patientBirthDate }, {}, outcome, demoLinks(token)), 422);
     }
     sessions.delete(readSigned(req, SESSION_COOKIE));
     reply.clearCookie(SESSION_COOKIE, { path: cookiePath(token) });

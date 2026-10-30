@@ -4,16 +4,16 @@ import { describe, expect, it } from "vitest";
 import type { Deps } from "../container.ts";
 import { config } from "../config.ts";
 import { MockPhysicianRegister } from "../register/index.ts";
-import { EidError, MockIdAustria } from "./index.ts";
+import { EidError, MockIdAustria, effectiveIssuerUrl } from "./index.ts";
 import { isAllowedRedirect, registerEidRoutes } from "./routes.ts";
 
 const base = "http://localhost:3000";
 const redirectUri = `${base}/r/tok123/callback`;
 
-async function app() {
+async function app(juryMode = false) {
   const eid = new MockIdAustria({ eidIssuerUrl: `${base}/mock-eid` });
   const register = new MockPhysicianRegister();
-  const deps = { config: { ...config, publicBaseUrl: base }, eid, register } as unknown as Deps;
+  const deps = { config: { ...config, publicBaseUrl: base, juryMode }, eid, register } as unknown as Deps;
   const a = Fastify();
   await a.register(formbody);
   await registerEidRoutes(a, deps);
@@ -69,6 +69,39 @@ describe("MockPhysicianRegister", () => {
   it("ignores case and diacritics; entries without birth date match any", async () => {
     const reg = new MockPhysicianRegister({ registerName: "R", entries: [{ given: ["Jörg"], family: "Groß", registrationNumber: "N1" }] });
     expect((await reg.lookup(identity("jorg", "GROSS", "2000-01-01"))).listed).toBe(true);
+  });
+});
+
+describe("behind an https tunnel (V2-JURY-2)", () => {
+  it("uses the public base URL for the mock eID when EID_ISSUER_URL is still localhost", () => {
+    expect(effectiveIssuerUrl({ eidIssuerUrl: "http://localhost:3000/mock-eid", publicBaseUrl: "https://abc.trycloudflare.com/" })).toBe("https://abc.trycloudflare.com/mock-eid");
+    expect(effectiveIssuerUrl({ eidIssuerUrl: "http://localhost:3000/mock-eid", publicBaseUrl: "http://localhost:3000" })).toBe("http://localhost:3000/mock-eid");
+    expect(effectiveIssuerUrl({ eidIssuerUrl: "https://eid.example/x", publicBaseUrl: "https://abc.trycloudflare.com" })).toBe("https://eid.example/x");
+  });
+
+  it("allows only redirects back to the tunnel origin", () => {
+    expect(isAllowedRedirect("https://abc.trycloudflare.com/r/t/callback", "https://abc.trycloudflare.com")).toBe(true);
+    expect(isAllowedRedirect("http://abc.trycloudflare.com/r/t/callback", "https://abc.trycloudflare.com")).toBe(false);
+  });
+
+  it("jury mode: own-name form first, never prefilled from login_hint, phone-friendly inputs", async () => {
+    const { a } = await app(true);
+    const res = await a.inject({ url: `/mock-eid/authorize?state=s1&login_hint=${encodeURIComponent("Dr. Eva Brandl")}&redirect_uri=${encodeURIComponent(redirectUri)}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.indexOf('id="given"')).toBeLessThan(res.body.indexOf('class="persona"'));
+    expect(res.body).toContain("Tragen Sie Ihren eigenen Namen ein.");
+    expect(res.body).not.toMatch(/<input[^>]*id="(given|family)"[^>]*value=/);
+    expect(res.body).toContain('autocapitalize="words"');
+    expect(res.body).toMatch(/id="birthDate" name="birthDate" type="date"/);
+    const css = await a.inject({ url: "/mock-eid/eid.css" });
+    expect(css.body).toContain("font-size:max(16px,1em)"); // no iOS zoom on focus
+  });
+
+  it("default mode keeps the personas first", async () => {
+    const { a } = await app();
+    const res = await a.inject({ url: `/mock-eid/authorize?state=s1&redirect_uri=${encodeURIComponent(redirectUri)}` });
+    expect(res.body.indexOf('class="persona"')).toBeLessThan(res.body.indexOf('id="given"'));
+    expect(res.body).toContain("Andere Person");
   });
 });
 
