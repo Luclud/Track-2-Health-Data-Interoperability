@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import type { DocumentType } from "@brieftaube/shared";
 import { DOCUMENT_TYPE_LABELS_DE } from "@brieftaube/shared";
 import type { AuthorizedRequestView, LlmClient } from "../ports.ts";
-import { MockLlmClient } from "../llm/index.ts";
+import type { Config } from "../config.ts";
+import { DEFAULT_ANTHROPIC_MODEL, MockLlmClient } from "../llm/index.ts";
 import { englishDate, withPatient } from "./demo.ts";
 
 export const IMPORTANCE = ["hoch", "mittel", "niedrig", "nicht relevant"] as const;
@@ -136,8 +137,12 @@ function mockRanking(v: AssistView, docs: ArchiveDocument[]): Ranked[] {
 const cache = new Map<string, AssistResult>();
 
 /** The LLM counts as configured only if it is a real provider client (not the eval mock). */
-export function assistLlm(provider: string, llm: LlmClient): LlmClient | undefined {
-  return ["anthropic", "perplexity", "openai-compatible"].includes(provider) && llm.enabled && !(llm instanceof MockLlmClient) ? llm : undefined;
+export function assistLlm(provider: string, llm?: LlmClient): LlmClient | undefined {
+  return ["anthropic", "perplexity", "openai-compatible"].includes(provider) && llm?.enabled && !(llm instanceof MockLlmClient) ? llm : undefined;
+}
+
+export function assistModelName(c: Pick<Config, "llmProvider" | "llmModel">): string {
+  return c.llmModel || (c.llmProvider === "anthropic" ? DEFAULT_ANTHROPIC_MODEL : c.llmProvider === "perplexity" ? "sonar-pro" : c.llmProvider);
 }
 
 export async function rankArchive(v: AssistView, llm?: LlmClient, opts: AssistOptions = {}): Promise<AssistResult> {

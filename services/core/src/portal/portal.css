@@ -62,3 +62,25 @@ label .hint{display:inline;margin-left:.3rem}
 @media print{body{background:#fff}body *{visibility:hidden}.receipt,.receipt *{visibility:visible}.receipt{position:absolute;left:0;top:0;width:100%;border:1px solid #000}.receipt details>*{display:block}.no-print{display:none!important}}
 @media (min-width:48rem){body{font-size:17px}main{padding-top:1rem}.card{padding:.5rem 1.25rem 1.25rem}}
 @media (prefers-reduced-motion:no-preference){.btn{transition:background .15s,border-color .15s}}
+.assist-opt{margin:.6rem 0 0;padding:.6rem .8rem;border:1px solid var(--line);border-radius:.55rem;background:#fff}
+label.check{display:flex;gap:.6rem;align-items:flex-start;margin:0;font-weight:600}
+label.check input{width:1.5rem;height:1.5rem;flex:none;margin:.1rem 0 0;accent-color:var(--accent)}
+.assist-opt .hint{margin:.3rem 0 0 2.1rem}
+.assist{margin:1rem 0;padding:.4rem 1rem 1rem;border:2px solid var(--accent);border-radius:var(--r);background:#fff}
+.assist h3{margin:.6rem 0 .4rem;font-size:1.05rem}
+.badge{display:inline-block;margin:0 0 .4rem;padding:.2rem .6rem;border-radius:1rem;font-size:.85rem;font-weight:700}
+.badge.llm{background:var(--accent-soft);color:var(--accent-dark)}
+.badge.mock{background:var(--warn-soft);color:var(--warn)}
+.sought{margin:.4rem 0}
+.assist-list{list-style:none;padding:0;margin:.6rem 0}
+.assist-item{border-top:1px solid var(--line);padding:.7rem 0}
+.assist-item p{margin:.2rem 0}
+.assist-head .date{color:var(--muted);font-size:.9rem;white-space:nowrap}
+.imp{display:inline-block;padding:.05rem .5rem;border-radius:.4rem;font-size:.8rem;font-weight:700;background:#e3e8ee;color:var(--muted)}
+.imp-hoch .imp{background:var(--ok-soft);color:var(--ok)}
+.imp-mittel .imp{background:var(--accent-soft);color:var(--accent-dark)}
+.reason{font-size:.95rem}
+.evidence{font-size:.85rem;color:var(--muted)}
+.evidence q{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
+.evidence.none{color:var(--warn);font-style:italic}
+.assist-pick{margin:.5rem 0 0;padding:.6rem;min-height:2.9rem;font-size:1rem}

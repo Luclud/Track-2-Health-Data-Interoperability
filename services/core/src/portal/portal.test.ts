@@ -22,14 +22,14 @@ const labDoc = readFileSync(new URL("../../../../scenario/documents/lab-result-m
 let app: FastifyInstance;
 let svc: FakeRequestService;
 
-async function build(juryMode = false) {
+async function build(juryMode = false, senderAssist = false) {
   svc = new FakeRequestService(
     makeFakeRequest(),
     makeFakeRequest({ id: "req-2", token: "tok-old" }, { status: "expired" }),
     makeFakeRequest({ id: "req-3", token: "tok-done" }, { status: "answered" }),
   );
   const deps = {
-    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid`, juryMode },
+    config: { ...config, publicBaseUrl: base, eidIssuerUrl: `${base}/mock-eid`, juryMode, senderAssist },
     eid: new MockIdAustria({ eidIssuerUrl: `${base}/mock-eid` }),
     register: new MockPhysicianRegister(),
     requests: svc,
@@ -347,6 +347,90 @@ describe("jury demo buttons (V2-JURY-2)", () => {
     expect(parsedPatient(demoDocument("falsche-patientin", johann)).name.given).toEqual(["Max"]);
     const max = { patient: { name: { given: ["Max"], family: "Beispiel" }, birthDate: "1960-01-01" }, documentType: "lab-result" as const };
     expect(parsedPatient(demoDocument("falsche-patientin", max)).name.given).toEqual(["Maria"]);
+  });
+});
+
+describe("sender assist (ASSIST-2)", () => {
+  const BOX = "KI-Hilfe: passende Dokumente aus meiner Ablage vorschlagen";
+  const ids = (body: string) => [...body.matchAll(/data-id="([^"]+)"/g)].map((m) => m[1]);
+  const textarea = (body: string) =>
+    (/<textarea[^>]*>([\s\S]*?)<\/textarea>/.exec(body)?.[1] ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+
+  it("is off by default: no checkbox, and ?assist=1&pick= changes nothing", async () => {
+    const { jar } = await loginAs("eva-brandl");
+    const plain = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(plain.body).not.toContain(BOX);
+    expect(plain.body).not.toContain("assist");
+    const forced = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22", headers: { cookie: jar.header() } });
+    expect(forced.body).toBe(plain.body);
+  });
+
+  it("enabled: checkbox with hint and noscript link above the file input; no list until ticked", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer", headers: { cookie: jar.header() } });
+    expect(res.body).toContain(BOX);
+    expect(res.body).toContain("Dokumente verlassen die Praxis erst mit „Sicher senden“.");
+    expect(res.body).toContain('data-on="/r/tok-eva/answer?assist=1#assist"');
+    expect(res.body).toContain('<noscript><p><a href="/r/tok-eva/answer?assist=1#assist">');
+    expect(res.body.indexOf(BOX)).toBeLessThan(res.body.indexOf('id="file"'));
+    expect(res.body).not.toContain('id="assist"');
+    expect(textarea(res.body)).toBe("");
+  });
+
+  it("?assist=1 without a session shows nothing about the patient", async () => {
+    await build(false, true);
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22" });
+    expect(res.statusCode).toBe(303);
+    expect(res.headers.location).toBe("/r/tok-eva");
+    expect(res.body).not.toContain("Maria");
+    expect(res.body).not.toContain("Gerinnung");
+  });
+
+  it("ticked: ranked list, current clotting panel first, other patients hidden, MOCK badge", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1", headers: { cookie: jar.header() } });
+    expect(res.statusCode).toBe(200);
+    expect(ids(res.body)[0]).toBe("labor-gerinnung-2026-10-22");
+    expect(ids(res.body)).toHaveLength(5);
+    expect(res.body).not.toContain("labor-andere-patientin");
+    expect(res.body).not.toContain("labor-namensgleich");
+    expect(res.body).toContain("2 Dokumente anderer Personen wurden ausgeblendet");
+    expect(res.body).toContain("KI-Vorschlag (Demo, MOCK)");
+    expect(res.body).toContain("<b>Gesucht für:</b> Bitte Gerinnung vor dem Eingriff.");
+    expect(res.body).toContain("Beleg (Zeile ");
+    expect(res.body).toContain('href="/r/tok-eva/answer?assist=1&amp;pick=labor-gerinnung-2026-10-22#content"');
+    expect(res.body).toMatch(/id="assist-toggle" checked/);
+    expect(textarea(res.body)).toBe("");
+    expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
+  });
+
+  it("„Übernehmen“ fills patient and document, does not send; „Sicher senden“ files it", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    const res = await app.inject({ url: "/r/tok-eva/answer?assist=1&pick=labor-gerinnung-2026-10-22", headers: { cookie: jar.header() } });
+    const md = textarea(res.body);
+    expect(md).toBe(labDoc);
+    expect(res.body).toContain("Vorschlag übernommen: Laborbefund Gerinnung. Bitte prüfen Sie das Dokument und senden Sie es dann.");
+    expect(res.body).toContain('value="Maria"');
+    expect(res.body).toContain('value="1961-03-12"');
+    expect(svc.calls.some((c) => c.method === "submitAnswer")).toBe(false);
+    const sent = await app.inject({ method: "POST", url: "/r/tok-eva/answer", ...withCookie(multipartBody({ ...maria, content: md }), jar) });
+    expect(sent.body).toContain("Vielen Dank – gesendet!");
+    const call = svc.calls.find((c) => c.method === "submitAnswer")!;
+    expect((call.args[2] as { content: string }).content).toBe(labDoc);
+  });
+
+  it("an unknown or hidden id shows an error and fills nothing", async () => {
+    await build(false, true);
+    const { jar } = await loginAs("eva-brandl");
+    for (const id of ["gibt-es-nicht", "labor-andere-patientin", "labor-namensgleich"]) {
+      const res = await app.inject({ url: `/r/tok-eva/answer?assist=1&pick=${id}`, headers: { cookie: jar.header() } });
+      expect(res.body).toContain("nicht gefunden. Es wurde nichts übernommen.");
+      expect(textarea(res.body)).toBe("");
+      expect(res.body).not.toContain('value="Maria"');
+    }
   });
 });
 
