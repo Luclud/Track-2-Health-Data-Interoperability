@@ -34,6 +34,7 @@ const LENA = { localpart: "lena.hofer", password: "demo-lena-2026", displayName:
 const BOT = { localpart: "brieftaube", password: "demo-bot-2026", displayName: "Brieftaube" };
 const ROOM_ALIAS_LOCALPART = "anfragen-hofer";
 const ROOM_NAME = "Anfragen – Dr. Hofer";
+const ROOM_TOPIC = "Dokumente von außen anfordern – Brieftaube meldet hier Status und Ergebnisse.";
 const WIDGET_ID = "brieftaube";
 
 export interface RuntimeFile {
@@ -163,7 +164,7 @@ async function ensureRoom(lenaToken: string, botUserId: string): Promise<string>
       visibility: "private",
       room_alias_name: ROOM_ALIAS_LOCALPART,
       name: ROOM_NAME,
-      topic: "Dokumente von außen anfordern – Brieftaube meldet hier Status und Ergebnisse.",
+      topic: ROOM_TOPIC,
       invite: [botUserId],
       // Room v12+: the creator must not appear in power_levels.users (creators are implicitly all-powerful).
       power_level_content_override: { users: { [botUserId]: 50 } },
@@ -231,6 +232,9 @@ async function seedMatrix(previous?: Partial<RuntimeFile>): Promise<Omit<Runtime
   const botUserId = userId(BOT.localpart);
   const roomId = await ensureRoom(lenaToken, botUserId);
   await ensureInvitedAndJoined(lenaToken, botToken, roomId, botUserId);
+  // Re-assert name/topic on every run: a room that was created earlier (or renamed) gets them back.
+  await putState(lenaToken, roomId, "m.room.name", "", { name: ROOM_NAME });
+  await putState(lenaToken, roomId, "m.room.topic", "", { topic: ROOM_TOPIC });
   const url = await ensureWidget(lenaToken, roomId);
   console.log(`  widget ${WIDGET_ID} pinned (${url})`);
   return { botAccessToken: botToken, botUserId, roomId, lenaAccessToken: lenaToken, lenaUserId: userId(LENA.localpart), widgetUrl: url };
