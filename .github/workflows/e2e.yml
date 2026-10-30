@@ -1,0 +1,90 @@
+# TEST-6: full-stack scenario e2e (TEST-3) + UI e2e (TEST-4) + metrics (TEST-5).
+# Separate workflow on purpose: it pulls 4 images and boots HAPI (~2-4 min) and depends on every lane,
+# so it is NOT a required check. The required gate stays `CI / check` (ci.yml). Treat red here as an issue to file.
+name: E2E
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scenario:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHAT_MODE: memory
+      LLM_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Cache FHIR validator and packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache
+            ~/.fhir
+          key: fhir-validator-${{ hashFiles('scripts/validate-fhir.ts') }}
+          restore-keys: fhir-validator-
+      - name: Install
+        run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start stack (Synapse, Element, HAPI, Mailpit)
+        run: |
+          cp .env.example .env
+          npm run stack:up
+      - name: Wait for stack
+        run: |
+          wait_for() { for i in $(seq 1 90); do curl -fsS -o /dev/null "$2" && { echo "$1 up"; return 0; }; sleep 3; done; echo "$1 not up: $2"; return 1; }
+          wait_for synapse http://localhost:8008/health
+          wait_for mailpit http://localhost:8025/api/v1/info
+          wait_for hapi    http://localhost:8090/fhir/metadata
+      - name: Seed
+        run: npm run seed
+      - name: Build doctor UI
+        run: npm run ui:build
+      - name: Start core
+        run: |
+          mkdir -p out
+          nohup npm start > out/core.log 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o /dev/null http://localhost:3000/health && exit 0; sleep 2; done
+          echo "core did not become healthy"; cat out/core.log; exit 1
+
+      - name: Scenario e2e (TEST-3)
+        run: npm run e2e
+      - name: UI e2e (TEST-4)
+        if: success() || failure()
+        run: npm run e2e:ui
+      - name: Metrics (TEST-5)
+        if: success() || failure()
+        run: npm run metrics
+      - name: Metrics to job summary
+        if: always()
+        run: test -f docs/METRICS.md && cat docs/METRICS.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Stack logs
+        if: failure()
+        run: mkdir -p out && docker compose -f infra/docker-compose.yml --env-file .env logs --no-color --tail 300 > out/stack.log 2>&1 || true
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            out/
+            docs/METRICS.md
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
