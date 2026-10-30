@@ -2,14 +2,15 @@
 import { expect, test } from "@playwright/test";
 import { isCoreUp, mailFor } from "../lib/stack.ts";
 
-test("doctor UI (standalone) sends a lab-result request by email", async ({ page }) => {
+test("doctor UI (standalone) sends a free-text request by email", async ({ page }) => {
   test.skip(!(await isCoreUp()), "core not reachable at /health");
   await page.goto("/widget/?mode=standalone");
 
   await page.getByPlaceholder(/Name suchen/).fill("Beispiel");
   await page.getByRole("option", { name: /Beispiel, Maria/ }).click();
-  await page.getByRole("radiogroup", { name: "Dokumentart" }).getByText("Laborbefund").click();
-  await page.getByLabel("Notiz").fill("Gerinnung vor OP");
+  // No document-type options: the doctor only describes the need; the sender chooses from their own archive.
+  await expect(page.getByRole("radiogroup", { name: "Dokumentart" })).toHaveCount(0);
+  await page.getByLabel(/Beschreiben Sie in eigenen Worten/).fill("Unterschenkelfraktur links – Gerinnung vor OP");
 
   await page.getByLabel("Name", { exact: true }).fill("Dr. Eva Brandl");
   await page.getByLabel("Funktion").fill("Laborärztin");
