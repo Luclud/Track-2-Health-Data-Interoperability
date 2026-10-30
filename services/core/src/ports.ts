@@ -86,6 +86,10 @@ export interface RequestRepository {
   byId(id: string): Promise<DocumentRequest | undefined>;
   byTokenHash(tokenHash: string): Promise<DocumentRequest | undefined>;
   listByRoom(roomId: string): Promise<DocumentRequest[]>;
+  /** All still-open requests (sent | opened | identity-failed | verified | rejected) across all rooms; for the scheduler. */
+  listOpen(): Promise<DocumentRequest[]>;
+  /** Replaces the stored token hash (link rotation on reminder). Throws if the request does not exist. */
+  rotateTokenHash(id: string, tokenHash: string): Promise<void>;
   /** Addresses this requester has used before (for the "unknown contact" warning) */
   knownAddresses(requesterMatrixId: string): Promise<string[]>;
 }
