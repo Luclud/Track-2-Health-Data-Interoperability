@@ -81,7 +81,7 @@ type FetchLike = (url: string, init?: { headers?: Record<string, string>; signal
 
 interface SyncResponse {
   next_batch: string;
-  rooms?: { join?: Record<string, { timeline?: { events?: { type: string; sender: string; event_id: string; content?: { body?: unknown; msgtype?: unknown } }[] } }> };
+  rooms?: { join?: Record<string, { timeline?: { events?: { type: string; sender: string; event_id: string; origin_server_ts?: number; content?: { body?: unknown; msgtype?: unknown } }[] } }> };
 }
 
 export interface StatusBotDeps {
@@ -98,6 +98,8 @@ export class StatusBot {
   private stopped = false;
   private abort = new AbortController();
   private readonly fetchImpl: FetchLike;
+  /** Commands sent before the bot started are never answered (a restart must not replay old commands). */
+  private readonly startedAt = Date.now();
 
   constructor(private readonly deps: StatusBotDeps) {
     this.fetchImpl = deps.fetch ?? (globalThis.fetch as unknown as FetchLike);
@@ -108,7 +110,7 @@ export class StatusBot {
     const { synapseUrl, botAccessToken } = this.deps.runtime;
     const params = new URLSearchParams({ timeout: String(this.since ? timeoutMs : 0) });
     if (this.since) params.set("since", this.since);
-    else params.set("filter", JSON.stringify({ room: { timeline: { limit: 0 } }, presence: { not_types: ["*"] } }));
+    else params.set("filter", JSON.stringify({ room: { timeline: { limit: 1 } }, presence: { not_types: ["*"] } }));
     const res = await this.fetchImpl(`${synapseUrl}/_matrix/client/v3/sync?${params}`, {
       headers: { authorization: `Bearer ${botAccessToken}` },
       signal: this.abort.signal,
@@ -123,6 +125,7 @@ export class StatusBot {
     for (const [roomId, room] of Object.entries(data.rooms?.join ?? {})) {
       for (const ev of room.timeline?.events ?? []) {
         if (ev.type !== "m.room.message" || ev.sender === this.deps.runtime.botUserId) continue;
+        if ((ev.origin_server_ts ?? Number.MAX_SAFE_INTEGER) < this.startedAt) continue;
         const cmd = typeof ev.content?.body === "string" ? parseCommand(ev.content.body) : undefined;
         if (!cmd) continue;
         await this.deps.chat.post(cmd === "status" ? await this.status(roomId) : helpMessage(roomId));

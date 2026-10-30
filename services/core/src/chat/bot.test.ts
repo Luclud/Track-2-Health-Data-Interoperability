@@ -74,7 +74,23 @@ describe("StatusBot", () => {
     return { bot, posted, urls, listed };
   }
 
-  const msg = (sender: string, body: string) => ({ type: "m.room.message", sender, event_id: `$${body}`, content: { msgtype: "m.text", body } });
+  const msg = (sender: string, body: string, ts = Date.now() + 1000) => ({
+    type: "m.room.message",
+    sender,
+    event_id: `$${body}`,
+    origin_server_ts: ts,
+    content: { msgtype: "m.text", body },
+  });
+
+  it("ignores commands sent before the bot started", async () => {
+    const { bot, posted } = setup([
+      { next_batch: "s1" },
+      { next_batch: "s2", rooms: { join: { [ROOM]: { timeline: { events: [msg("@lena.hofer:klinikum.example", "!brieftaube status", 1)] } } } } },
+    ]);
+    await bot.syncOnce(0);
+    expect(await bot.syncOnce(0)).toBe(0);
+    expect(posted).toHaveLength(0);
+  });
 
   it("skips history on the first sync, then answers commands but not its own messages", async () => {
     const { bot, posted, urls, listed } = setup([
