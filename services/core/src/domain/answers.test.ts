@@ -42,6 +42,16 @@ describe("submitAnswer happy path (both scenario requests)", () => {
     await expect(service.submitAnswer(token, id, { ...maria, content: "x" }, {})).rejects.toMatchObject({ code: "already-answered" });
   });
 
+  it("Matrix outage does not block filing", async () => {
+    const { service, deps, request, token, id } = await verified();
+    deps.chat.post = async () => {
+      throw new Error("Matrix down");
+    };
+    const out = await service.submitAnswer(token, id, { ...maria, content: doc("lab-result-maria-beispiel.md") }, {});
+    expect(out.result).toBe("filed");
+    expect((await deps.repo.byId(request.id))!.status).toBe("filed");
+  });
+
   it("rehab report from Stefan Kern is filed", async () => {
     const { service, deps, request, token, id } = await verified(rehabBody, "stefan-kern");
     const out = await service.submitAnswer(token, id, { ...maria, content: doc("rehab-report-maria-beispiel.md") }, {});

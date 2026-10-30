@@ -235,7 +235,7 @@ export class CoreRequestService implements Partial<RequestService> {
       r.status = "held";
       r.heldReason = "not-in-register";
       await this.d.repo.update(r);
-      await this.d.chat.post({ roomId: r.roomId, body: chatHeld(r, HELD_REASON_DE["not-in-register"]), severity: "warning" });
+      await this.post({ roomId: r.roomId, body: chatHeld(r, HELD_REASON_DE["not-in-register"]), severity: "warning" });
       return { result: "held", reason: "not-in-register" };
     }
     const filedResources = await this.file(r, doc, ctx);
@@ -271,7 +271,7 @@ export class CoreRequestService implements Partial<RequestService> {
       outcome: "success",
       details: { filedResources: filed, policy: ctx.policy },
     });
-    await this.d.chat.post({ roomId: r.roomId, body: chatFiled(r, doc, ctx.register), severity: "success" });
+    await this.post({ roomId: r.roomId, body: chatFiled(r, doc, ctx.register), severity: "success" });
     return filed;
   }
 
@@ -295,7 +295,7 @@ export class CoreRequestService implements Partial<RequestService> {
         // best effort: the audit entry above is the record
       }
     }
-    await this.d.chat.post({ roomId: r.roomId, body: chat, severity: "alert" });
+    await this.post({ roomId: r.roomId, body: chat, severity: "alert" });
     return { result: "rejected", reason, messageForResponder };
   }
 
