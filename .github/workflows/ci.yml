@@ -23,7 +23,8 @@ jobs:
           path: |
             .cache
             ~/.fhir
-          key: fhir-validator-v1
+          key: fhir-validator-${{ hashFiles('scripts/validate-fhir.ts') }}
+          restore-keys: fhir-validator-
       - name: Install
         run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
       - name: Typecheck
