@@ -20,6 +20,8 @@ export interface RequestServiceDeps {
   llm: LlmClient;
   /** Clock, injectable for tests */
   now?: () => Date;
+  /** Warnings that must not fail the request (default console.warn) */
+  log?: (message: string) => void;
 }
 
 export { DomainError } from "./errors.ts";

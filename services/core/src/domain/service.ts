@@ -6,7 +6,7 @@ import type { Patient } from "fhir/r4.js";
 import { buildRequestedTask, taskId } from "../fhir/build-task.ts";
 import { assertNotificationIsClean, findPrivacyLeaks } from "../notify/privacy.ts";
 import { parsePersonName } from "../parser/names.ts";
-import type { OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
+import type { ChatNotifier, OutboundMessage, RequestMeta, RequestService } from "../ports.ts";
 import type { RequestServiceDeps } from "./index.ts";
 import { DomainError } from "./errors.ts";
 import { chatRequestSent, linkFor, notificationFor, requesterActor } from "./messages.ts";
@@ -85,7 +85,7 @@ export class CoreRequestService implements Partial<RequestService> {
       outcome: "success",
       details: { channel: request.recipient.channel, providerMessageId: sent.providerMessageId, warnings: warnings.length },
     });
-    await this.d.chat.post({ roomId: request.roomId, body: chatRequestSent(request), severity: "info" });
+    await this.post({ roomId: request.roomId, body: chatRequestSent(request), severity: "info" });
     return { request, warnings };
   }
 
@@ -135,5 +135,14 @@ export class CoreRequestService implements Partial<RequestService> {
       await this.d.repo.update(r);
     }
     return r;
+  }
+
+  /** A Matrix outage must never block sending requests or filing answers. */
+  protected async post(msg: Parameters<ChatNotifier["post"]>[0]): Promise<void> {
+    try {
+      await this.d.chat.post(msg);
+    } catch (err) {
+      (this.d.log ?? console.warn)(`chat: posting to ${msg.roomId} failed: ${(err as Error).message}`);
+    }
   }
 }

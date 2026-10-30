@@ -69,6 +69,16 @@ describe("createRequest", () => {
     expect(await deps.repo.knownAddresses(lena.matrixUserId)).toEqual(["+43 660 000 0101"]);
   });
 
+  it("Matrix outage does not block sending", async () => {
+    const logs: string[] = [];
+    const chat = { post: async () => { throw new Error("Matrix down"); }, list: async () => [] };
+    const { deps, service } = testDeps({ chat, log: (m) => logs.push(m) });
+    const { request } = await service.createRequest(lena, labBody);
+    expect(request.status).toBe("sent");
+    expect(await (deps.email as MemorySender).inbox()).toHaveLength(1);
+    expect(logs[0]).toContain("Matrix down");
+  });
+
   it("unknown patient → patient-not-found, nothing sent", async () => {
     const { deps, service } = testDeps();
     await expect(service.createRequest(lena, { ...labBody, patientId: "nobody" })).rejects.toMatchObject({ code: "patient-not-found", status: 404 });
