@@ -16,7 +16,7 @@ The whole scenario works end to end on one laptop: request 1 (lab result by emai
 | Stack | TypeScript everywhere: Fastify, SQLite, React/Vite, HAPI, Mailpit, Playwright, Vitest. |
 | Parsing | Deterministic parser; LLM only as verified fallback (provider-agnostic, Anthropic/Perplexity/any). AI output never filed automatically. |
 | Demo | One laptop, docker compose. Mock what doesn't work. |
-| Agents | 2 Devin accounts. A: Dev Core + Tester. B: Dev Matrix + Dev Outside + Reviewer. Planning and final review in Claude. |
+| Agents | One Devin account at a time (only one can be connected). One coordinator runs Dev Core, Dev Matrix, Dev Outside, Tester and short Reviewer sessions. Second account = reserve budget, takes over via docs/HANDOFF.md. Planning and final review in Claude. |
 | Patient as answerer | Not in v1 (maybe v2 / pitch only). |
 | Pitch story | Ski accident patient journey (ER → surgery → family doctor → MRI → rehab → home), prepared on Friday once v1 works. |
 
@@ -24,8 +24,9 @@ The whole scenario works end to end on one laptop: request 1 (lab result by emai
 
 | Time | What |
 |---|---|
-| 03:30 | Coordinators start. A: BOOT-1. B: INFRA-1 + OUT-2 start immediately. |
-| 04:00 | BOOT-1 merged; all four dev/test lanes running. |
+| 03:30 | Coordinator starts Dev Matrix (INFRA-1), does BOOT-1 itself. |
+| 04:00 | BOOT-1 merged; Dev Core, Dev Outside, Tester started. |
+| ~05:30–06:30 | Likely budget handoff to account 2 (human switches the connection). |
 | 06:30 | All P0 merged (target). |
 | 07:00 | Integration on `main`, e2e, metrics. P1 only if green. |
 | 08:30 | Feature stop. |
@@ -41,4 +42,5 @@ The whole scenario works end to end on one laptop: request 1 (lab result by emai
 | HAPI won't start | Public test server `https://hapi.fhir.org/baseR4` with `SCENARIO_PATIENT_ID=brieftaube-maria-beispiel`. |
 | Validator errors late | Golden examples are the reference; builders are tested against them. |
 | Agent budget runs out | P0 order in TASKS.md; coordinators stop P2/P3 at ~70 ACUs. |
-| Lockfile conflicts between accounts | Only BOOT-1 creates it; dependency changes in their own PR. |
+| Lockfile conflicts between agents | Only BOOT-1 creates it; dependency changes in their own PR. |
+| Budget of account 1 runs out at night | Coordinator writes docs/HANDOFF.md at ~75 ACUs; human switches to account 2 and restarts the same prompt. |

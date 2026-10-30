@@ -8,15 +8,15 @@ Read `AGENTS.md` first. Work top to bottom inside your lane; P0 before P1 before
 - Only files in your lane were changed (plus this file's checkbox).
 - PR description: what was done, what was decided without asking, what is still missing.
 
-Lanes: **A-CORE** and **A-TEST** run in Devin account A; **B-MATRIX**, **B-OUTSIDE** and **B-REVIEW** in Devin account B.
+All lanes run in ONE Devin account under one coordinator (`docs/agents/coordinator.md`). The lane names A-/B- are historical; ignore the account letters.
 
 ---
 
-## BOOT — Account A coordinator, before anything else (≤ 20 min)
+## BOOT — Coordinator, before anything else (≤ 20 min)
 
 - [ ] **BOOT-1 Install and go green.** Run `npm install`, `npm run typecheck`, `npm test`. Fix only trivial type errors in the skeleton (the initial commit was written without being able to run npm). Commit `package-lock.json`. Run `npm run validate:fhir` on `fhir-examples/`; if the golden examples have validator **errors**, fix the examples (keep the structure, change only what the validator complains about) and note every change in the PR and in `docs/FHIR-MAPPING.md`. Merge to `main`.
   - Acceptance: `main` has `package-lock.json`; `npm run check` is green on `main`; CI workflow green.
-  - Account B starts its lanes in parallel but does **not** commit `package-lock.json` until BOOT-1 is merged.
+  - Dev Matrix starts INFRA-1 in parallel but does **not** commit `package-lock.json` until BOOT-1 is merged.
 
 ---
 
@@ -80,7 +80,7 @@ Owns: `services/core/src/{portal,eid,notify,register}/**` (except `notify/privac
 
 ---
 
-## Final integration — both coordinators, from ~07:00
+## Final integration — coordinator, from ~07:00
 
 - [ ] **INT-1** On `main`: full stack, seed, `npm run e2e` green for R1, R2, M1–M3.
 - [ ] **INT-2** `npm run metrics` → `docs/METRICS.md`.
