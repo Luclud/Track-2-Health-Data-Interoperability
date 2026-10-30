@@ -27,7 +27,8 @@
     "seed": "tsx scripts/seed.ts",
     "e2e": "vitest run --config tests/vitest.e2e.config.ts",
     "e2e:ui": "playwright test -c tests/playwright.config.ts",
-    "metrics": "tsx scripts/metrics.ts"
+    "metrics": "tsx scripts/metrics.ts",
+    "ai:eval": "tsx scripts/ai-eval.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

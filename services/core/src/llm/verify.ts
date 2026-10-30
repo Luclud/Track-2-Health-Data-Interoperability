@@ -1,7 +1,7 @@
 // Verification of LLM output (docs/DESIGN.md §3). Anything not literally backed by the source is rejected.
 import type { ParsedDocument, ParsedLabValue, ParseResult, PersonName } from "@brieftaube/shared";
 import { DateTime } from "luxon";
-import { foldText, isValidLoinc, parseDate, toIsoDate } from "../parser/index.ts";
+import { foldText, isValidLoinc, parseDate, parseDateRange, toIsoDate } from "../parser/index.ts";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -19,6 +19,16 @@ export function datesIn(text: string): Set<string> {
   for (const m of text.matchAll(re)) {
     const d = parseDate(m[0]);
     if (d) out.add(toIsoDate(d));
+  }
+  return out;
+}
+
+/** Date ranges written as one phrase ("Stay: 2 to 23 September 2026"), as "start..end". */
+function rangesIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const r = parseDateRange(line.slice(line.lastIndexOf(":") + 1).replace(/[*_]/g, ""));
+    if (r) out.add(`${r.start}..${r.end}`);
   }
   return out;
 }
@@ -114,7 +124,7 @@ export function verifyLlmDocument(source: string, candidate: unknown): ParseResu
     const st = isObj(candidate.stay) ? candidate.stay : undefined;
     const stay = st && isoDate(st.start) && isoDate(st.end) ? { start: s(st.start), end: s(st.end) } : undefined;
     if (st && !stay) problems.push("stay dates do not parse");
-    if (stay && (!sourceDates.has(stay.start) || !sourceDates.has(stay.end))) problems.push(`stay ${stay.start}..${stay.end} not in source`);
+    if (stay && (!sourceDates.has(stay.start) || !sourceDates.has(stay.end)) && !rangesIn(source).has(`${stay.start}..${stay.end}`)) problems.push(`stay ${stay.start}..${stay.end} not in source`);
     if (problems.length) return fail();
     const writtenBy = person(candidate.writtenBy);
     const sentBy = person(candidate.sentBy);
