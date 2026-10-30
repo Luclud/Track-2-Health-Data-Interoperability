@@ -23,7 +23,7 @@ All lanes run in ONE Devin account under one coordinator (`docs/agents/coordinat
 ## Lane A-CORE — Dev Core (account A)
 Owns: `services/core/src/{domain,parser,fhir,llm,audit,api,db}/**`
 
-- [ ] **CORE-1 (P0) Deterministic parser.** `parser/` implements `DocumentParser` per DESIGN.md §3 (dates in Europe/Vienna via luxon, units → UCUM mapping, ranges, German + English month names, header-name based table columns).
+- [x] **CORE-1 (P0) Deterministic parser.** `parser/` implements `DocumentParser` per DESIGN.md §3 (dates in Europe/Vienna via luxon, units → UCUM mapping, ranges, German + English month names, header-name based table columns).
   - Tests: the 3 scenario documents parse to exactly the expected values; plus ≥ 6 variant fixtures from `tests/fixtures/documents/` (A-TEST provides them; until then write your own in `parser/__fixtures__`). Malformed input never throws.
 - [ ] **CORE-2 (P0) FHIR builders.** `fhir/build-lab.ts`, `fhir/build-rehab.ts`, `fhir/build-task.ts`, `fhir/build-audit-event.ts`, `fhir/build-provenance.ts`: pure functions from (request, parsed document, identity check result, timestamps) → transaction `Bundle`. Must match `fhir-examples/` (test: build from the scenario docs with the golden timestamps and deep-compare after removing uuids). Interpretation N/H/L from the range. LOINC check digit util.
   - Also write every built resource to `out/fhir/<name>.json` in a test so `npm run validate:fhir` validates real builder output (0 errors).
